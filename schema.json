@@ -1,0 +1,11 @@
+[
+  {"name": "character_id",         "type": "INTEGER"},
+  {"name": "character_name",       "type": "STRING"},
+  {"name": "level",                "type": "INTEGER"},
+  {"name": "rank_name",            "type": "STRING"},
+  {"name": "class_name",           "type": "STRING"},
+  {"name": "last_login_timestamp", "type": "INTEGER"},
+  {"name": "average_item_level",   "type": "INTEGER"},
+  {"name": "snapshot_date",        "type": "TIMESTAMP"},
+  {"name": "stats",                "type": "STRING"}
+]

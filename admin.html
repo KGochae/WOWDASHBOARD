@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WOW.GG 공지사항 관리자</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0d0f14;color:#c8c3b5;font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;}
+:root{--gold:#c8a84a;--border:#2a2820;--panel:#13161c;--text2:rgba(200,195,185,.75);--text3:#666;}
+
+/* ── 헤더 ── */
+.hd{background:#13161c;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;}
+.hd-title{font-size:14px;font-weight:700;color:var(--gold);letter-spacing:.6px;}
+.hd-sub{font-size:11px;color:var(--text3);}
+.hd-actions{margin-left:auto;display:flex;gap:8px;}
+btn,button{cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.4px;border-radius:4px;padding:6px 14px;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1e3a1a;border-color:#3a6a2a;color:#7ecf5a;}
+.btn-primary:hover{background:#2a4a22;}
+.btn-secondary{background:#1a1e2a;border-color:var(--border);color:var(--text2);}
+.btn-secondary:hover{background:#20253a;}
+.btn-danger{background:#2a1a1a;border-color:#6a2a2a;color:#cf5a5a;}
+.btn-danger:hover{background:#3a2020;}
+.btn-gold{background:#2a2010;border-color:#5a4a1a;color:var(--gold);}
+.btn-gold:hover{background:#3a3010;}
+
+/* ── 레이아웃 ── */
+.body{display:flex;flex:1;overflow:hidden;}
+
+/* ── 공지 목록 사이드바 ── */
+.sidebar{width:240px;background:#0f1116;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar-hd{padding:12px 14px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.notice-list{flex:1;overflow-y:auto;}
+.notice-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.notice-item:hover{background:#1a1e28;}
+.notice-item.active{background:#1e2030;border-left:3px solid var(--gold);}
+.notice-item .ni-date{font-size:10px;color:var(--text3);margin-bottom:3px;}
+.notice-item .ni-title{font-size:11px;color:#c8c3b5;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.notice-empty-list{padding:20px;text-align:center;font-size:11px;color:var(--text3);}
+
+/* ── 에디터 영역 ── */
+.editor-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.editor-toolbar{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:#0f1116;}
+.editor-toolbar input{background:#1a1e2a;border:1px solid var(--border);border-radius:4px;padding:5px 10px;color:#c8c3b5;font-size:12px;outline:none;}
+.editor-toolbar input:focus{border-color:#5a4a1a;}
+#inTitle{width:260px;}
+#inDate{width:120px;}
+.editor-panels{flex:1;display:flex;overflow:hidden;}
+
+/* ── 마크다운 에디터 ── */
+.md-editor-wrap{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);}
+.panel-label{padding:6px 14px;font-size:10px;color:var(--text3);letter-spacing:.5px;background:#0f1116;border-bottom:1px solid var(--border);flex-shrink:0;}
+#mdEditor{flex:1;background:#0d0f14;color:#c8c3b5;border:none;outline:none;padding:16px;font-size:12.5px;font-family:'Consolas','Fira Code',monospace;line-height:1.8;resize:none;tab-size:2;}
+
+/* ── 미리보기 ── */
+.preview-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.preview-body{flex:1;overflow-y:auto;padding:20px 24px;}
+.preview-body h2{font-size:13px;font-weight:700;color:#c8c3b5;margin:16px 0 6px;letter-spacing:.3px;}
+.preview-body h3{font-size:12px;font-weight:700;color:var(--gold);margin:12px 0 4px;}
+.preview-body p{margin:0 0 10px;font-size:12px;color:var(--text2);line-height:1.85;}
+.preview-body ul{margin:4px 0 10px 20px;}
+.preview-body li{font-size:12px;color:var(--text2);margin-bottom:3px;line-height:1.7;}
+.preview-body strong{color:#c8c3b5;font-weight:700;}
+.preview-body em{color:var(--text2);font-style:italic;}
+.preview-body code{background:#1e2028;border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:11px;font-family:monospace;color:var(--gold);}
+.preview-body a{color:var(--gold);text-decoration:none;}
+.preview-body hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
+
+/* ── 상태바 ── */
+.statusbar{padding:5px 16px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);background:#0f1116;flex-shrink:0;display:flex;gap:16px;}
+.status-ok{color:#7ecf5a;}
+.status-err{color:#cf5a5a;}
+
+/* ── 빈 상태 ── */
+.no-select{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--text3);}
+.no-select-icon{font-size:32px;opacity:.2;}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div>
+    <div class="hd-title">📢 WOW.GG 공지사항 관리자</div>
+    <div class="hd-sub">notices.json을 직접 열어 편집 · 저장합니다</div>
+  </div>
+  <div class="hd-actions">
+    <button class="btn-secondary" onclick="openFile()">📂 notices.json 열기</button>
+    <button class="btn-gold" onclick="saveFile()" id="btnSave" disabled>💾 저장 (notices.json)</button>
+    <button class="btn-primary" onclick="addNotice()">＋ 새 공지 추가</button>
+  </div>
+</div>
+
+<div class="body">
+  <!-- 사이드바 -->
+  <div class="sidebar">
+    <div class="sidebar-hd">
+      공지 목록
+      <span id="noticeCount" style="color:var(--gold)">0개</span>
+    </div>
+    <div class="notice-list" id="noticeList">
+      <div class="notice-empty-list">notices.json을 열어주세요</div>
+    </div>
+  </div>
+
+  <!-- 에디터 -->
+  <div class="editor-area" id="editorArea">
+    <div class="no-select" id="noSelect">
+      <div class="no-select-icon">📝</div>
+      <div>좌측에서 공지를 선택하거나 새 공지를 추가하세요</div>
+    </div>
+
+    <div id="editorMain" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div class="editor-toolbar">
+        <span style="font-size:11px;color:var(--text3);margin-right:4px;">날짜</span>
+        <input type="date" id="inDate">
+        <span style="font-size:11px;color:var(--text3);margin:0 4px 0 12px;">제목</span>
+        <input type="text" id="inTitle" placeholder="공지 제목">
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="btn-secondary" onclick="applyEdit()">✔ 적용</button>
+          <button class="btn-danger" onclick="deleteNotice()">🗑 삭제</button>
+        </div>
+      </div>
+      <div class="editor-panels">
+        <div class="md-editor-wrap">
+          <div class="panel-label">✏ 마크다운 편집</div>
+          <textarea id="mdEditor" placeholder="## 제목&#10;&#10;- **굵게** 내용&#10;- 일반 내용&#10;&#10;본문 내용을 입력하세요." oninput="updatePreview()"></textarea>
+        </div>
+        <div class="preview-wrap">
+          <div class="panel-label">👁 미리보기</div>
+          <div class="preview-body" id="preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <span id="statusMsg">notices.json 파일을 열어주세요.</span>
+  <span style="margin-left:auto" id="statusCount"></span>
+</div>
+
+<script>
+let notices = [];
+let selectedIdx = null;
+let fileHandle = null;
+
+// ── 파일 열기 (File System Access API) ──────────────────────
+async function openFile(){
+  try{
+    [fileHandle] = await window.showOpenFilePicker({
+      types:[{description:'JSON',accept:{'application/json':['.json']}}],
+      startIn:'documents'
+    });
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    notices = JSON.parse(text);
+    document.getElementById('btnSave').disabled = false;
+    renderList();
+    setStatus(`✅ ${file.name} 로드 완료 — 공지 ${notices.length}개`, 'ok');
+  }catch(e){
+    if(e.name!=='AbortError') setStatus('❌ 파일 열기 실패: '+e.message,'err');
+  }
+}
+
+// ── 파일 저장 ────────────────────────────────────────────────
+async function saveFile(){
+  if(!fileHandle){ setStatus('먼저 notices.json 파일을 열어주세요.','err'); return; }
+  try{
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(notices, null, 2));
+    await writable.close();
+    setStatus('✅ notices.json 저장 완료! → firebase deploy --only hosting 을 실행하세요.','ok');
+  }catch(e){
+    setStatus('❌ 저장 실패: '+e.message,'err');
+  }
+}
+
+// ── 목록 렌더 ────────────────────────────────────────────────
+function renderList(){
+  const el = document.getElementById('noticeList');
+  document.getElementById('noticeCount').textContent = notices.length+'개';
+  document.getElementById('statusCount').textContent = `총 ${notices.length}개`;
+  if(!notices.length){
+    el.innerHTML='<div class="notice-empty-list">공지사항이 없습니다</div>';
+    return;
+  }
+  el.innerHTML = [...notices].map((n,i)=>`
+    <div class="notice-item${i===selectedIdx?' active':''}" onclick="selectNotice(${i})">
+      <div class="ni-date">${n.date||'날짜 없음'}</div>
+      <div class="ni-title">${n.title||'(제목 없음)'}</div>
+    </div>
+  `).reverse().map((html,ri)=>{
+    // reverse index mapping
+    const realIdx = notices.length - 1 - ri;
+    return html.replace(`onclick="selectNotice(${notices.length-1-ri})"`,`onclick="selectNotice(${realIdx})"`);
+  }).join('');
+}
+
+// ── 공지 선택 ────────────────────────────────────────────────
+function selectNotice(idx){
+  selectedIdx = idx;
+  const n = notices[idx];
+  document.getElementById('inDate').value = n.date||'';
+  document.getElementById('inTitle').value = n.title||'';
+  document.getElementById('mdEditor').value = n.content||'';
+  document.getElementById('noSelect').style.display='none';
+  document.getElementById('editorMain').style.display='flex';
+  updatePreview();
+  renderList();
+}
+
+// ── 새 공지 추가 ─────────────────────────────────────────────
+function addNotice(){
+  const today = new Date().toISOString().slice(0,10);
+  notices.push({date:today, title:'새 공지사항', content:'## 내용을 입력하세요\n\n- 항목 1\n- 항목 2'});
+  selectedIdx = notices.length - 1;
+  renderList();
+  selectNotice(selectedIdx);
+  setStatus('새 공지 추가됨. 내용을 입력하고 [적용] → [저장] 하세요.','ok');
+}
+
+// ── 편집 적용 ────────────────────────────────────────────────
+function applyEdit(){
+  if(selectedIdx===null) return;
+  notices[selectedIdx].date    = document.getElementById('inDate').value;
+  notices[selectedIdx].title   = document.getElementById('inTitle').value;
+  notices[selectedIdx].content = document.getElementById('mdEditor').value;
+  renderList();
+  setStatus('✔ 적용됨. [저장] 버튼으로 notices.json에 저장하세요.','ok');
+}
+
+// ── 삭제 ─────────────────────────────────────────────────────
+function deleteNotice(){
+  if(selectedIdx===null) return;
+  if(!confirm(`"${notices[selectedIdx].title}" 공지를 삭제하시겠습니까?`)) return;
+  notices.splice(selectedIdx,1);
+  selectedIdx = null;
+  document.getElementById('noSelect').style.display='flex';
+  document.getElementById('editorMain').style.display='none';
+  renderList();
+  setStatus('삭제됨.','ok');
+}
+
+// ── 미리보기 ─────────────────────────────────────────────────
+function updatePreview(){
+  const md = document.getElementById('mdEditor').value;
+  document.getElementById('preview').innerHTML = renderMd(md);
+}
+
+function renderMd(text){
+  let h = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^---$/gm,'<hr>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>');
+
+  // 리스트 처리
+  const lines = h.split('\n');
+  const out = [];
+  let inUl = false;
+  for(const line of lines){
+    if(/^- (.+)$/.test(line)){
+      if(!inUl){out.push('<ul>');inUl=true;}
+      out.push('<li>'+line.slice(2)+'</li>');
+    } else {
+      if(inUl){out.push('</ul>');inUl=false;}
+      out.push(line);
+    }
+  }
+  if(inUl) out.push('</ul>');
+
+  // 문단 처리
+  return out.join('\n')
+    .split('\n\n')
+    .map(b=>b.trim())
+    .filter(b=>b)
+    .map(b=>b.startsWith('<h')||b.startsWith('<ul')||b.startsWith('<hr')?b:`<p>${b.replace(/\n/g,'<br>')}</p>`)
+    .join('\n');
+}
+
+// ── 상태 메시지 ──────────────────────────────────────────────
+function setStatus(msg, type=''){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = type==='ok'?'status-ok':type==='err'?'status-err':'';
+}
+
+// ── 단축키 ───────────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); applyEdit(); saveFile(); }
+});
+</script>
+</body>
+</html>

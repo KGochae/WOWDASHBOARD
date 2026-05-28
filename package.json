@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "wow-classic-items": "^2.0.1",
+    "wow-model-viewer": "^1.1.2"
+  }
+}

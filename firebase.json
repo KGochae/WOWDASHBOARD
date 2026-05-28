@@ -1,0 +1,137 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaseignore",
+      "**/.*",
+      "node_modules/**",
+      "backup/**",
+      "**/backup/**",
+      "wowhead_pipeline/**",
+      "worker/**",
+      "addon/**",
+      "insane-design/**",
+      "md/**",
+      "__pycache__/**",
+      "admin.html",
+      "라벨링/**",
+      "data/raw_xml/**",
+      "data/characters.json",
+      "data/characters_pretty.json",
+      "data/bis_wh_cache.json",
+      "data/items_classic_tbc.json",
+      "data/loon_bis.json",
+      "data/tbca_bis.json",
+      "data/tbc_talents.json.bak_20260428",
+      "lib/wow-model-viewer/tests/**",
+      "lib/wow-model-viewer/types/**",
+      "lib/wow-model-viewer/jest.config.js",
+      "lib/wow-model-viewer/package.json",
+      "images/reference/**",
+      "*.bat",
+      "*.py",
+      "*.log",
+      "*.json.lock",
+      "*.ndjson",
+      "**/*.ndjson",
+      "**/*.md",
+      "**/*.ts",
+      "serviceAccountKey.json",
+      "cors.json",
+      "package.json",
+      "package-lock.json",
+      "schema.json",
+      "parse_items.js",
+      "fetch_progress.json",
+      "wowhead_cache.json",
+      "enchant_report.json",
+      "pipeline.md",
+      "wowhead.md",
+      "itemsetting.md",
+      "data/user_login_log.json",
+      "raw_xml_merged.json",
+      "items_tbc.json",
+      "items_parsed.json",
+      "new_items_preview.json",
+      "inven_classic_item.json",
+      "inven_tbc_item.json",
+      "skill_loadmap/**",
+      "js/constants.js",
+      "js/core.js",
+      "js/navigation.js",
+      "js/data.js",
+      "js/guild.js",
+      "js/character.js",
+      "js/stats.js",
+      "js/skillstats.js",
+      "js/items.js",
+      "js/raid.js",
+      "js/compare.js",
+      "js/tooltips.js",
+      "js/legal.js"
+    ],
+    "headers": [
+      {
+        "source": "/recap_data/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "source": "/data/tbc_talents.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "source": "/data/itemsEra.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "source": "/data/dim_appearance.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "source": "/data/tbca_bis_updated.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
+      },
+      {
+        "source": "/data/notices.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300" }
+        ]
+      },
+      {
+        "source": "/data/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=600" }
+        ]
+      },
+      {
+        "source": "/images/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "**/*.@(jpg|jpeg|webp|png|gif)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=604800" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css|html)",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ]
+  }
+}

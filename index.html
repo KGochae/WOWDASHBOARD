@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>WOWGG</title>
+<link href="https://cdn.jsdelivr.net/npm/pretendard@latest/dist/web/static/pretendard.css" rel="stylesheet" crossorigin="anonymous"/>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="page-landing">
+
+  <!-- 상단 네비게이션 바 -->
+  <div class="landing-nav">
+    <div id="lnav-items" class="landing-nav-item nav-disabled" role="button" tabindex="0" onclick="showViewer();switchVTab('items')">아이템 검색</div>
+    <div class="landing-nav-sep"></div>
+    <div id="lnav-stats" class="landing-nav-item landing-nav-has-drop nav-disabled" role="button" tabindex="0">
+      Waktaverse WOW 통계 <span class="lnav-arrow">▾</span>
+      <div class="landing-nav-drop">
+        <div class="landing-nav-drop-item" role="button" tabindex="0" onclick="showViewer();goStatsTab('rank')">스탯 랭킹</div>
+        <div class="landing-nav-drop-item" role="button" tabindex="0" onclick="showViewer();goStatsTab('skill')">특성/인챈트 통계</div>
+      </div>
+    </div>
+    <div class="landing-nav-sep"></div>
+    <!-- <div id="lnav-raidbuilder" class="landing-nav-item nav-disabled" role="button" tabindex="0" onclick="showViewer();switchVTab('raidbuilder')">⚔ 레이드 구성</div> -->
+  </div>
+
+  <div class="landing-layout">
+
+    <!-- 왼쪽: 타이틀 + KPI + 검색 -->
+    <div class="landing-left">
+
+      <div class="landing-title-search-group">
+
+      <div class="landing-hero">
+        <div class="landing-brand-tag">WOWGG</div>
+        <div class="landing-main-title">WAKTAVERSE<br>GUILD</div>
+      </div>
+
+      <div class="landing-search-section">
+        <div class="wow-search-wrap loading" id="searchWrap">
+          <div class="wow-search-deco">⌕</div>
+          <div class="search-spinner"></div>
+          <input class="wow-search-input" id="landingInput" type="text"
+            placeholder="데이터 로딩 중..."
+            aria-label="캐릭터 검색"
+            onkeydown="if(event.key==='Enter')searchChar()"/>
+          <button class="wow-search-btn" onclick="searchChar()">검색</button>
+        </div>
+        <div class="landing-error" id="landingError">
+          <span>⚠</span><span id="landingErrorMsg">해당 유저가 없습니다.</span>
+        </div>
+      </div>
+
+      </div><!-- /landing-title-search-group -->
+
+      <!-- <div id="landingSnapDate" style="font-size:12px;color:var(--text3);letter-spacing:.04em;margin-top:4px"></div> -->
+
+      <!-- <button class="landing-stats-btn" onclick="goStats()">
+        <span>Waktaverse WOW 통계 보러가기</span>
+        <span style="font-size:12px;opacity:.6">→</span>
+      </button> -->
+
+    </div>
+
+
+  </div>
+
+  <!-- 하단 푸터 -->
+</div>
+
+<!-- VIEWER PAGE -->
+<div id="page-viewer">
+  <div class="v-header">
+    <div class="v-logo" onclick="goBack()" style="cursor:pointer;">WOW.GG</div>
+    <div class="v-sep"></div>
+    <div class="v-search-wrap">
+      <input id="viewerInput" type="text" 
+        aria-label="캐릭터 검색"
+        onkeydown="if(event.key==='Enter')searchFromViewer()"/>
+      <button onclick="searchFromViewer()">검색</button>
+    </div>
+    <div class="v-sep"></div>
+    <div class="v-tabs">
+      <div class="v-tab active" id="vtab-viewer" role="button" tabindex="0" onclick="switchVTab('viewer')">캐릭터 뷰어</div>
+      <div class="v-tab" id="vtab-items" role="button" tabindex="0" onclick="switchVTab('items')">아이템 검색</div>
+      <div class="v-dropdown-wrap" id="vtab-stats-wrap">
+        <div class="v-tab" id="vtab-stats" role="button" tabindex="0" onclick="toggleStatsDropdown()">Waktavers WOW 통계</div>
+        <div class="v-dropdown" id="statsDropdown">
+          <div class="v-dropdown-item" data-tab="rank" role="button" tabindex="0" onclick="goStatsTab('rank')">스탯 랭킹</div>
+          <div class="v-dropdown-item" data-tab="skill" role="button" tabindex="0" onclick="goStatsTab('skill')">특성/인챈트 통계</div>
+        </div>
+      </div>
+      <!-- <div class="v-tab" id="vtab-raid" onclick="switchVTab('raid')">레이드</div> -->
+      <!-- <div class="v-tab" id="vtab-compare" onclick="switchVTab('compare')">캐릭터 비교하기</div> -->
+      <!-- <div class="v-tab" id="vtab-raidbuilder" role="button" tabindex="0" onclick="switchVTab('raidbuilder')">⚔ 25인 레이드 구성</div> -->
+</div>
+    <div style="flex:1"></div>
+    <div class="v-sep"></div>
+    <!-- RECAP TAB (hidden for deploy) -->
+    <!-- <div class="v-tab" id="vtab-recap" role="button" tabindex="0" onclick="switchVTab('recap')">✦ RECAP</div> -->
+    <div class="v-tab" id="vtab-notices" role="button" tabindex="0" onclick="switchVTab('notices')">📢 공지사항</div>
+  </div>
+  <div class="load-bar"><div class="load-fill" id="loadBar"></div></div>
+  <div class="main-layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar collapsed" id="sidebar">
+      <div class="sidebar-hd" role="button" tabindex="0" onclick="toggleSidebar()">
+        <span class="sidebar-hd-text">길드원 목록</span>
+        <span class="sidebar-toggle">
+          <svg class="icon-collapse" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="icon-expand" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+      <div class="sidebar-body">
+        <div class="sidebar-filter-col">
+          <div class="sidebar-cats" id="sidebarCats"></div>
+          <div class="sidebar-class-cats" id="sidebarClassCats"></div>
+          <div class="sidebar-spec-cats" id="sidebarSpecCats"></div>
+        </div>
+        <div class="sidebar-list" id="sidebarList"></div>
+      </div>
+    </div>
+    <!-- VIEWER COLUMN: viewer-area + bottom card -->
+    <div class="viewer-column" id="viewer-column">
+    <!-- VIEWER AREA: char info + 3 panels -->
+    <div class="viewer-area" id="viewer-main-area">
+      <!-- CHAR INFO BAR: spans full width above all panels -->
+      <div class="char-info-bar">
+        <div class="char-avatar" id="charAvatar">&#9876;</div>
+        <div class="char-info">
+          <div class="char-name-row">
+            <span class="char-level" id="charLevel">LV.&#8212;</span>
+            <span class="char-name" id="charName">&#8212;</span>
+          </div>
+          <div class="char-badges" id="charBadges"></div>
+        </div>
+        <div class="char-bar-right" id="charBarRight"></div>
+      </div>
+      <!-- PANELS -->
+      <div class="content-area">
+        <!-- LEFT: STATS (SUMMARY + CORE + RESISTANCES + ALL STATS) -->
+        <div class="panel-left">
+          <div id="stats-content">
+           </div>
+        </div>
+        <!-- CENTER: CHARACTER VIEWER -->
+        <div class="panel-center">
+          <div class="stats-section-title panel-section-hd">캐릭터</div>
+          <div class="center-viewer-wrap">
+          <div class="eq-stat-card" id="eqStatCard">
+            <div class="eq-card-body">
+            <div class="eq-card-left">
+              <div class="stat-card eq-ilvl-card">
+                <div class="eq-ilvl-lbl">아이템 평균 레벨</div>
+                <div class="eq-ilvl-val" id="avgIlvlVal">—</div>
+                <span class="pct-badge" id="avgIlvlBadge" style="display:none;margin-top:4px;"></span>
+              </div>
+              <div class="stat-card eq-bar-card eq-gs-card">
+                <div class="eq-gs-label-row">
+                  <span class="stat-card-label">기어스코어</span>
+                  <span class="gs-hint-icon" onmouseenter="showGsTT(event)" onmousemove="moveTT(event)" onmouseleave="hideTT()">?</span>
+                </div>
+                <div class="stat-card-val" id="gsVal">—</div>
+                <span class="pct-badge" id="gsBadge" style="display:none;margin-top:4px;"></span>
+              </div>
+            </div>
+            <div class="eq-card-right">
+              <div class="eq-radar-lbl">장비 스탯</div>
+              <div id="eqRadarWrap"></div>
+            </div>
+            </div>
+          </div>
+          <!-- <div class="stats-section-title gear-section-title"></div> -->
+          <div class="gear-wrap">
+
+            <div class="gear-cols">
+              <div class="eq-col" id="colLeft"></div>
+              <div class="model-col">
+                <div class="model-wrap">
+                  <div id="model_3d">
+                    <div class="overlay" id="overlay">
+                      <div style="font-size:33.8px;opacity:.25">&#9876;</div>
+                      <div class="overlay-text">※ 캐릭터를 검색해주세요</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="eq-bottom" id="colBottom"></div>
+              </div>
+              <div class="eq-col" id="colRight"></div>
+            </div>
+          </div>
+          <div class="item-stats-panel" id="itemStatsPanel"></div>
+          </div><!-- /center-viewer-wrap -->
+        </div>
+        <!-- RIGHT: TALENTS / ITEM ANALYSIS -->
+        <div class="panel-right">
+          <div id="pr-skill-panel" style="display:none">
+            <div class="tg-tabs">
+              <div class="tg-tab active" id="tgtab-active" role="button" tabindex="0" onclick="switchTalentGroup('active')">
+                Active <span class="spec-badge" id="active-pts"></span>
+              </div>
+              <div class="tg-tab" id="tgtab-secondary" role="button" tabindex="0" onclick="switchTalentGroup('secondary')">
+                Secondary <span class="spec-badge" id="secondary-pts"></span>
+              </div>
+            </div>
+            <div class="talent-trees" id="talentTrees"></div>
+          </div>
+          <div id="pr-item-panel">
+            <div class="ia-empty">캐릭터를 선택해주세요</div>
+          </div>
+        </div>
+      </div>
+      <div class="pr-tab-strip">
+        <div class="pr-panel-tab" id="prtab-skill" role="button" tabindex="0" onclick="switchPRTab('skill')">스킬</div>
+        <div class="pr-panel-tab active" id="prtab-items" role="button" tabindex="0" onclick="switchPRTab('items')">GEAR REPORT</div>
+      </div>
+    </div>
+    </div><!-- /viewer-column -->
+    <!-- STATS PAGE (왁타버스 통계 탭) -->
+    <div class="stats-page" id="stats-main-area" style="display:none">
+
+     
+
+      <!-- 탭 패널: 스탯 랭킹 -->
+      <div class="st-tab-panel" id="stpanel-rank">
+        <input type="checkbox" id="chkVtuberOnly2" style="display:none" onchange="toggleVtuberOnly(this.checked)"/>
+        <div class="st-rank-header">
+          <div class="stats-section-label">WAKTAVERSE 랭킹</div>
+        </div>
+        <div class="stats-page-inner">
+          <div class="st-cls-layout">
+            <div class="st-mode-sidebar">
+              <div class="st-mode-btn active" id="stModeLbBtn" onclick="switchStMode('rank')">🏆 Stat Leaderboard<svg class="st-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="st-rank-filter-col" id="stRankFilterCol">
+                <div class="st-rank-filter-box">
+                  <div class="st-rank-filter-section-label">길드등급</div>
+                  <div id="stRankFilter" class="st-rank-filter-btns"></div>
+                </div>
+                <div class="st-rank-filter-box">
+                  <div class="st-rank-filter-section-label">클래스</div>
+                  <div class="sk-picker-group st-cls-picker-vert" id="stClsPicker"></div>
+                </div>
+                <div class="st-rank-filter-box">
+                  <div class="st-rank-filter-section-label">타이틀</div>
+                  <div class="st-rank-filter-btns st-title-filter">
+                    <div class="sidebar-cat st-rank-btn" id="stHealerBtn" onclick="stToggleHealerMode()">타이틀 랭킹</div>
+                  </div>
+                </div>
+              </div>
+              <div class="st-mode-divider"></div>
+              <div class="st-mode-btn" id="stModeGuildBtn" onclick="switchStMode('guild')">📊 Guild Dashboard<svg class="st-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="st-rank-filter-col" id="gdRankFilterCol" style="display:none">
+                <div class="st-rank-filter-box">
+                  <div class="st-rank-filter-section-label">길드등급</div>
+                  <div id="gdRankFilterBtns" class="st-rank-filter-btns"></div>
+                </div>
+              </div>
+            </div>
+            <div id="stClsBody">
+              <div id="stClsRank" class="st-cls-rank-list">
+                <div id="stRankLoading" class="st-rank-loading"><div class="st-rank-spinner"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 패널: SKILL / ITEM 통계 -->
+      <div class="st-tab-panel" id="stpanel-skill" style="display:none">
+        <div class="stats-page-inner">
+          <div class="st-cls-layout">
+            <div class="st-mode-sidebar">
+              <div class="st-rank-filter-col">
+                <div class="st-rank-filter-box">
+                  <div class="st-rank-filter-section-label">테마필터</div>
+                  <div class="sk-mode-filter-btns">
+                    <div class="sk-mode-filter-btn active" id="skModeSkill" onclick="skSwitchMode('skill')">특성 통계</div>
+                    <div class="sk-mode-filter-btn" id="skModeEnchant" onclick="skSwitchMode('enchant')">인챈트 통계</div>
+                  </div>
+                </div>
+                <div class="st-rank-filter-box">
+                  <div class="st-rank-filter-section-label">직업</div>
+                  <div class="sk-picker-group st-cls-picker-vert" id="skClassPicker"></div>
+                </div>
+                <div class="st-rank-filter-box" id="skSpecFilterBox">
+                  <div class="st-rank-filter-section-label" id="skSpecLabel" style="display:none">특성</div>
+                  <div class="sk-picker-group st-cls-picker-vert" id="skSpecPicker" style="display:none"></div>
+                </div>
+              </div>
+            </div>
+            <div id="skMainBody" class="sk-main-body">
+              <div class="sk-cards-row">
+                <!-- SKILL 섹션 -->
+                <div class="sk-section">
+                  <div class="stats-section-label">클래스 특성 통계</div>
+                  <div class="sk-legend-row">
+                    <div class="sk-legend">
+                      <span class="sk-legend-desc">특성 선택률</span>
+                      <span class="sk-leg-dot" style="background:rgba(255,196,64,.12);border:2px solid rgba(255,196,64,.28)"></span>
+                      <span style="color:var(--text3);font-size:12px">낮음</span>
+                      <span class="sk-leg-dot" style="background:rgba(255,196,64,.22);border:2px solid rgba(255,196,64,.7)"></span>
+                      <span style="color:var(--text3);font-size:12px">중간</span>
+                      <span class="sk-leg-dot" style="background:rgba(255,196,64,.32);border:2px solid rgba(255,196,64,1);box-shadow:0 0 6px rgba(255,196,64,.6)"></span>
+                      <span style="color:var(--text3);font-size:12px">높음</span>
+                    </div>
+                  </div>
+                  <div class="sk-col-wrap">
+                    <div id="skTreeContainer" class="sk-tree-container"></div>
+                  </div>
+                </div>
+                <!-- 스킬 선택 데이터프레임 섹션 -->
+                <div class="sk-section sk-item-card">
+                  <div class="sk-df-header">
+                    <span class="sk-df-title">특성 선택 분포</span>
+                    <span class="sk-df-subtitle" id="skDfSubtitle"></span>
+                  </div>
+                  <div id="skDataframe" class="sk-dataframe-wrap"></div>
+                </div>
+              </div>
+            </div>
+            <div id="skEnchantBody" class="sk-main-body" style="display:none">
+              <div class="sk-enc-header">
+                <div class="stats-section-label">인챈트 통계</div>
+                <div class="sk-df-subtitle" id="skEncSubtitle"></div>
+              </div>
+              <div class="sk-cards-row">
+                <div class="sk-section">
+                  <div class="sk-section-label" style="margin-bottom:0;">보석</div>
+                  <div class="sk-gcf-wrap">
+                    <button class="sk-gcf-btn active" data-color="전체" onclick="skSetGemColorFilter('전체')">전체</button>
+                    <button class="sk-gcf-btn" data-color="붉은색" onclick="skSetGemColorFilter('붉은색')"><span class="sk-gcf-dot" style="background:#c41e3a"></span>붉은색</button>
+                    <button class="sk-gcf-btn" data-color="노란색" onclick="skSetGemColorFilter('노란색')"><span class="sk-gcf-dot" style="background:#d4aa00"></span>노란색</button>
+                    <button class="sk-gcf-btn" data-color="파란색" onclick="skSetGemColorFilter('파란색')"><span class="sk-gcf-dot" style="background:#1a6ecf"></span>파란색</button>
+                    <button class="sk-gcf-btn" data-color="얼개" onclick="skSetGemColorFilter('얼개')"><span class="sk-gcf-dot" style="background:#808080"></span>얼개</button>
+                  </div>
+                  <div id="skEncGemList" class="sk-enc-list"></div>
+                </div>
+                <div class="sk-section sk-item-card">
+                  <div class="sk-section-label" style="margin-bottom:0;">마법부여</div>
+                  <div id="skEncEnchList" class="sk-enc-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- COMPARE PAGE -->
+    <div class="viewer-area compare-page" id="compare-main-area" style="display:none">
+      <div class="cmp-hd">
+        <span class="cmp-hd-title">⚔ 캐릭터 비교하기</span>
+      </div>
+      <!-- CHAR CARD ROW -->
+      <div class="cmp-cards-row">
+        <div class="cmp-card" id="cmpCardL"
+          ondragover="cmpDragOver(event,'left')"
+          ondragleave="cmpDragLeave(event,'left')"
+          ondrop="cmpDrop(event,'left')">
+          <div class="cmp-empty"><div style="font-size:33.8px;opacity:.15">⚔</div><div>드래그하여 배치</div></div>
+        </div>
+        <div class="cmp-vs-divider"><span class="cmp-vs-text">VS</span></div>
+        <div class="cmp-card" id="cmpCardR"
+          ondragover="cmpDragOver(event,'right')"
+          ondragleave="cmpDragLeave(event,'right')"
+          ondrop="cmpDrop(event,'right')">
+          <div class="cmp-empty"><div style="font-size:33.8px;opacity:.15">⚔</div><div>드래그하여 배치</div></div>
+        </div>
+      </div>
+      <!-- STATS COMPARISON -->
+      <div class="cmp-stats-scroll" id="cmpStatsBody">
+        <div class="cmp-notice">두 캐릭터를 배치하면 핵심 스탯을 비교합니다</div>
+      </div>
+    </div>
+    <!-- RECAP PAGE (hidden for deploy) -->
+    <!-- <div id="recap-main-area" style="display:none;position:absolute;inset:0;overflow-y:auto;scroll-snap-type:y mandatory;"></div>
+    <button id="recap-close-btn" onclick="switchVTab('viewer')" style="display:none;position:absolute;top:14px;right:18px;z-index:200;background:none;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;opacity:.7;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.7">✕</button> -->
+    <!-- NOTICES PAGE -->
+    <div class="viewer-area" id="notices-main-area" style="display:none;flex-direction:column;overflow-y:auto;padding:28px 32px;gap:0;">
+      <div id="noticesBody" style="width:100%;"></div>
+    </div>
+    <!-- ITEM SETUP PAGE -->
+    <div id="item-setup-main-area"></div>
+    <!-- RAID PAGE -->
+    <div id="raid-main-area" style="display:none;position:absolute;inset:0;">
+      <!-- 레이드 디테일 오버레이 -->
+      <div class="raid-detail" id="raid-detail">
+        <div class="raid-detail-bg"></div>
+        <div class="raid-detail-content">
+          <!-- 상단 헤더 -->
+          <div class="rd-header">
+            <div class="rd-header-left">
+              <div class="rd-header-info">
+                <div class="rd-header-name" id="rd-title"></div>
+                <div class="rd-header-bar"></div>
+                <div class="rd-header-sub" id="rd-subtitle"></div>
+                <div class="rd-header-clear" id="rd-clear-time"></div>
+              </div>
+            </div>
+            <div class="rd-header-divider"></div>
+            <div class="rd-header-dps-log">
+              <div class="rd-dps-log-title">DPS LOG</div>
+              <svg id="rd-dps-svg" viewBox="0 0 1000 148" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+          <!-- 바디 -->
+          <div class="rd-body">
+            <!-- 왼쪽 KPI (클래스 비율 treemap) -->
+            <div class="rd-kpi">
+              <div class="rd-kpi-head">
+                <span class="rd-kpi-head-label">RAID KPI</span>
+                <span class="rd-kpi-cls-legend" id="rd-kpi-legend"></span>
+              </div>
+              <div class="rd-kpi-grid" id="rd-kpi-grid"></div>
+            </div>
+            <!-- 오른쪽 차트 (개인 랭킹) -->
+            <div class="rd-chart">
+              <div class="rd-chart-head">
+                <span class="rd-kpi-head-label">개인 랭킹</span>
+                <div class="rd-filter-tabs">
+                  <div class="rd-ftab active" role="button" tabindex="0" onclick="raidSetTab(this,'dps')">가한 데미지</div>
+                  <div class="rd-ftab" role="button" tabindex="0" onclick="raidSetTab(this,'dtps')">막은 피해</div>
+                  <div class="rd-ftab" role="button" tabindex="0" onclick="raidSetTab(this,'hps')">치유량</div>
+                  <div class="rd-ftab" role="button" tabindex="0" onclick="raidSetTab(this,'dispels')">저주 해제</div>
+                </div>
+              </div>
+              <div class="raid-bar-list" id="raid-bar-main"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+<!-- RAID BUILDER PAGE -->
+    <div id="raid-builder-main-area" style="display:none;flex:1;overflow:hidden">
+      <div class="rb-layout">
+
+        <!-- LEFT: 멤버 풀 사이드바 -->
+        <!-- <div class="rb-pool-col">
+          <div class="rb-pool-hd">레이드 멤버</div>
+          <div class="rb-pool-body">
+            <div class="rb-filter-area">
+              <div class="rb-filter-box">
+                <div class="rb-filter-section-label">길드 등급</div>
+                <div class="rb-filter-btns" id="rbRankFilters"></div>
+              </div>
+              <div class="rb-filter-box">
+                <div class="rb-filter-section-label">포지션</div>
+                <div class="rb-filter-btns">
+                  <button class="rb-filter-btn active" data-ftype="role" data-fval="all" onclick="rbSetPoolFilter('role','all')">전체</button>
+                  <button class="rb-filter-btn" data-ftype="role" data-fval="딜러" onclick="rbSetPoolFilter('role','딜러')">딜러</button>
+                  <button class="rb-filter-btn" data-ftype="role" data-fval="힐러" onclick="rbSetPoolFilter('role','힐러')">힐러</button>
+                  <button class="rb-filter-btn" data-ftype="role" data-fval="탱커" onclick="rbSetPoolFilter('role','탱커')">탱커</button>
+                </div>
+              </div>
+              <div class="rb-filter-box">
+                <div class="rb-filter-section-label">직업</div>
+                <div class="rb-filter-btns" id="rbClassFilters"></div>
+              </div>
+            </div>
+            <div class="rb-pool-list" id="rbPoolList"></div>
+          </div>
+        </div> -->
+
+        <!-- RIGHT: 레이드 빌더 BETA-->
+        <!-- <div class="rb-main-col">
+          <div class="rb-main-hd">
+            <div>
+              <div class="rb-main-title">25인 레이드 구성</div>
+              <div class="rb-main-sub">좌측 멤버를 각 공대 슬롯에 드래그 해 공대 시너지를 확인하세요! (슬롯 간 위치 교환 가능)</div>
+            </div>
+            <div class="rb-raid-check" id="rbRaidCheck"></div>
+            <button class="rb-clear-btn" onclick="rbClearAll()">전체 초기화</button>
+          </div>
+          <div class="rb-groups-wrap">
+            <div class="rb-groups-grid" id="rbGroupsGrid"></div>
+            <div class="rb-raid-panel">
+              <div class="rb-raid-panel-hd">클래스 시너지</div>
+              <div id="rbRaidCombos"></div>
+            </div>
+          </div>
+        </div> -->
+
+      </div>
+    </div>
+  </div>
+  <!-- VIEWER 하단 푸터 -->
+  <div class="viewer-footer">
+    <a onclick="openLegal('terms')" class="footer-link">이용약관</a>
+    <span class="footer-sep"></span>
+    <a onclick="openLegal('privacy')" class="footer-link">개인정보처리방침</a>
+    <span class="footer-sep"></span>
+    <span class="footer-copy">© 2026 WOW.GG · Fan Site</span>
+    <span class="footer-sep"></span>
+    <span class="footer-data-ver"></span>
+  </div>
+</div>
+
+<div id="logBox" style="display:none"></div>
+<div id="tooltip"></div>
+
+
+<div id="legalModal" onclick="if(event.target===this)closeLegal()" style="display:none;">
+  <div class="legal-inner">
+    <div class="legal-hd">
+      <span id="lmTitle"></span>
+      <button onclick="closeLegal()" class="legal-close">✕</button>
+    </div>
+    <div id="lmBody"></div>
+    <div class="legal-ft">WOW.GG · Classic TBC 왁타버스 길드 팬사이트</div>
+  </div>
+</div>
+
+<!-- NOTICE MODAL -->
+<div id="notice-modal-overlay" class="notice-modal-overlay" style="display:none">
+  <div class="notice-modal-box">
+    <div class="notice-modal-title">📢안내사항</div>
+    <ul class="notice-modal-list">
+      <li>- 해당 사이트는 Blizzard API를 통해 WOW 데이터를 수집하고 있습니다.</li>
+      <li>- API를 통해 수집되는 데이터는 유저가 마지막으로 로그아웃한 시점으로 업데이트됩니다. 이에 따라 실시간이 아닌 한 시간마다 자동 업데이트하고 있습니다.</li>
+      <li>- 배틀넷 계정설정에서 [게임 데이터 및 프로필 공개설정] - [비활성화]인 경우 데이터 수집이 불가능합니다.</li>
+    </ul>
+    <button class="notice-modal-btn" onclick="closeNoticeModal()">확인</button>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script>
+/* ── 배포 설정: PROXY_HOST = Cloudflare Workers URL ── */
+window.PROXY_HOST='https://wow-proxy.wowak.workers.dev';
+window.CONTENT_PATH=window.PROXY_HOST+'/modelviewer/tbc/';
+window.WOTLK_TO_RETAIL_DISPLAY_ID_API=undefined;
+</script>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"
+  integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+<script src="https://wow.zamimg.com/modelviewer/mists/deployment/viewer/810d077/viewer.min.js"></script>
+
+<script src="/js/bundle.js"></script>
+
+<script type="module">
+import { generateModels } from '/lib/wow-model-viewer/index.js';
+window.generateModels=generateModels;
+addLog('✅ 뷰어 로드 완료','ok');
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+  const firebaseConfig = {
+    apiKey: "***REMOVED***",
+    authDomain: "wowak-3edc9.firebaseapp.com",
+    projectId: "wowak-3edc9",
+    storageBucket: "wowak-3edc9.firebasestorage.app",
+    messagingSenderId: "239859935039",
+    appId: "1:239859935039:web:ee14a94f4c04a5d011958a",
+    measurementId: "G-HVV908XKXZ"
+  };
+  import { logEvent } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+  const app = initializeApp(firebaseConfig);
+  if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    const analytics = getAnalytics(app);
+    window.logFA = (event, params) => logEvent(analytics, event, params || {});
+  } else {
+    window.logFA = () => {};
+  }
+</script>
+</body>
+</html>

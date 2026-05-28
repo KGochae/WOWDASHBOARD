@@ -1,0 +1,40 @@
+# 🔴 시크릿 - 절대 노출 금지
+serviceAccountKey.json
+.firebase/
+.wrangler/
+cors.json
+*.log
+
+# 🟡 대용량 / 불필요
+node_modules/
+data/
+recap_data/
+backup/
+**/backup/
+.claude/
+__pycache__/
+라벨링/
+wowhead_pipeline/
+skill_loadmap/
+insane-design/
+addon/
+
+# 이미지 reference
+images/reference/
+
+# 빌드 산출물
+js/bundle.js
+
+# 백업 / 임시
+index_recap_backup.html
+gearscore_log.json
+*.bak
+*.bak_*
+*.json.lock
+*.ndjson
+
+# 파이썬 빌드 스크립트
+*.py
+
+# 기타
+*.bat
