@@ -4,9 +4,12 @@ serviceAccountKey.json
 .wrangler/
 cors.json
 *.log
+**/.dev.vars
+_dev/worker/.wrangler/
 
 # 🟡 대용량 / 불필요
 node_modules/
+_dev/
 data/
 recap_data/
 backup/
@@ -18,6 +21,17 @@ wowhead_pipeline/
 skill_loadmap/
 insane-design/
 addon/
+
+# wow-model-viewer - 사용하지 않는 파일
+lib/wow-model-viewer/tests/
+lib/wow-model-viewer/types/
+lib/wow-model-viewer/.github/
+lib/wow-model-viewer/jest.config.js
+lib/wow-model-viewer/package.json
+lib/wow-model-viewer/README.md
+lib/wow-model-viewer/.babelrc
+lib/wow-model-viewer/.eslintrc.js
+lib/wow-model-viewer/.nvmrc
 
 # 이미지 reference
 images/reference/

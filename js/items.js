@@ -6,7 +6,7 @@ var _bisActiveKey  = '';
 var _bisPhase      = 'p1';
 var _bisSlotFilter = 'Head';
 var _bisSrcFilter  = new Set();
-var _bisCart       = new Set();   // item_id Set (장바구니)
+var _bisCart       = new Map();   // compositeKey → {itemId,activeKey,phase,slot,rank,classKo,specKo}
 var _bisInitDone   = false;
 const _bisWhCache    = {};          // item_id → {name, icon, qualityId, html, source}
 const _bisSpellIdMap = {};          // item_id → spellId (전문 기술 crafted items)
@@ -25,6 +25,7 @@ const BIS_SLOT_KR = {
   Wrist:'손목', Hands:'손', Waist:'허리', Legs:'다리', Feet:'발',
   Ring:'손가락', Trinket:'장신구',
   'Off Hand':'보조손', 'One Hand':'한손', 'Two Hand':'양손',
+  'Ranged/Relic':'원거리',
 };
 
 const IS_CLASS_COLORS = {
@@ -182,6 +183,13 @@ async function _isInit() {
       .is-cart-panel-title { font-size:10px; font-weight:700; color:var(--text3); letter-spacing:.07em; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
       .is-cart-clear { background:none; border:none; color:var(--text3); cursor:pointer; font-size:10px; font-family:inherit; padding:0; }
       .is-cart-clear:hover { color:#d4918e; }
+      /* Google Sheets 내보내기 */
+      .is-gs-area { margin-top:10px; border-top:1px solid var(--border); padding-top:10px; display:flex; align-items:center; gap:6px; }
+      .is-gs-btn { flex:1; background:rgba(255,255,255,.04); border:1px solid var(--border2); color:var(--text2); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:11px; font-family:inherit; font-weight:600; transition:all .12s; text-align:center; display:flex; align-items:center; justify-content:center; gap:5px; }
+      .is-gs-btn:hover:not(:disabled) { background:rgba(255,255,255,.08); color:var(--text); }
+      .is-gs-btn:disabled { opacity:.4; cursor:not-allowed; }
+      .is-gs-btn.open { color:#6dba8e; border-color:rgba(109,186,142,.4); }
+      .is-gs-btn.open:hover { background:rgba(109,186,142,.08); }
       .is-cart-empty { color:var(--text3); font-size:12px; }
       .is-cart-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--border); }
       .is-cart-item:last-child { border-bottom:none; }
@@ -191,6 +199,10 @@ async function _isInit() {
       .is-cart-item-src { font-size:10px; color:var(--text3); margin-top:1px; }
       .is-cart-item-rm { background:none; border:none; color:var(--text3); cursor:pointer; font-size:14px; padding:0 2px; line-height:1; }
       .is-cart-item-rm:hover { color:#d4918e; }
+      .is-cart-group-hd { font-size:11px; font-weight:800; color:var(--text1); letter-spacing:.06em; text-transform:uppercase; padding:8px 0 3px; border-top:1px solid var(--border2); margin-top:4px; }
+      .is-cart-group-hd:first-child { border-top:none; margin-top:0; }
+      .is-cart-phase-hd { font-size:10px; font-weight:700; color:var(--text2); letter-spacing:.05em; padding:4px 0 1px 6px; text-transform:uppercase; }
+      .is-cart-slot-hd { font-size:10px; color:var(--text2); padding:4px 0 1px 6px; }
       #is-filter-col.is-filter-loading { pointer-events:none; opacity:.45; }
       /* Wowhead 툴팁 */
       #is-wh-tooltip { position:fixed; z-index:9999; pointer-events:none; display:none; max-width:300px; min-width:180px; }
@@ -269,6 +281,12 @@ async function _isInit() {
             <button class="is-cart-clear" onclick="bisClearCart()">전체 해제</button>
           </div>
           <div id="is-cart-list"><div class="is-cart-empty">아이템을 체크하여 장바구니에 담으세요!</div></div>
+          <div class="is-gs-area" id="bisGsArea" style="display:none">
+            <button class="is-gs-btn" id="bisGsBtn" onclick="bisExportToSheet()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+              구글 시트로 열기
+            </button>
+          </div>
         </div>
       </div>
     </div>`;
@@ -285,7 +303,7 @@ async function _isInit() {
   document.getElementById('is-main-list').innerHTML =
     '<div style="color:var(--text3);font-size:13px;padding:4px">데이터 로드 중...</div>';
   try {
-    const r = await fetch('/data/tbca_bis_updated.json');
+    const r = await fetch('/data/tbca_bis_updated.json?v=' + Date.now());
     _bisData = await r.json();
     // 전문 기술 아이템 spellId 맵 사전 구축
     for (const entry of Object.values(_bisData)) {
@@ -329,7 +347,7 @@ async function _isInit() {
   });
 
   // 슬롯 드롭다운 (초기값: 머리)
-  const slotOrder = ['Head','Neck','Shoulders','Back','Chest','Wrist','Hands','Waist','Legs','Feet','Ring','Trinket','One Hand','Two Hand','Off Hand'];
+  const slotOrder = ['Head','Neck','Shoulders','Back','Chest','Wrist','Hands','Waist','Legs','Feet','Ring','Trinket','One Hand','Two Hand','Off Hand','Ranged/Relic'];
   const slotSel = document.getElementById('is-slot-sel');
   slotOrder.forEach(slot => {
     const opt = document.createElement('option');
@@ -556,8 +574,9 @@ function isRenderList() {
       const tierLbl   = it.rank === 1 ? 'BiS' : 'Alt';
       const nameLoaded = cached ? '' : ' loading';
       const iconLoaded = cached ? '' : ' loading';
-      const inCart    = _bisCart.has(it.item_id) ? ' in-cart' : '';
-      const cartChk   = _bisCart.has(it.item_id) ? 'checked' : '';
+      const _ck       = `${_bisActiveKey}||${_bisPhase}||${slotData.slot}||${it.item_id}`;
+      const inCart    = _bisCart.has(_ck) ? ' in-cart' : '';
+      const cartChk   = _bisCart.has(_ck) ? 'checked' : '';
 
       // tbca source 우선 (상세 데이터), fallback → wowhead 파싱 source
       const activeSrc = it.source && Object.keys(it.source).length ? it.source : cached?.source;
@@ -582,7 +601,7 @@ function isRenderList() {
         <div class="is-item-right">
           <span class="is-cat-badge" style="background:${tierBg};color:${tierCol}">${tierLbl}</span>
           <input type="checkbox" class="is-cart-chk" ${cartChk}
-            onchange="bisToggleCart(${it.item_id},this.checked)"
+            onchange="bisToggleCart(${it.item_id},this.checked,'${slotData.slot}',${it.rank})"
             onclick="event.stopPropagation()">
         </div>
       </div>`;
@@ -597,27 +616,40 @@ function isRenderList() {
 }
 
 // ── 장바구니 ────────────────────────────────────────────────
-function bisToggleCart(itemId, checked) {
-  if (checked) _bisCart.add(itemId);
-  else _bisCart.delete(itemId);
-
-  // 행 강조
+function bisToggleCart(itemId, checked, slot, rank) {
+  const entry = _bisData?.[_bisActiveKey];
+  const ck = `${_bisActiveKey}||${_bisPhase}||${slot}||${itemId}`;
+  if (checked) {
+    _bisCart.set(ck, {
+      itemId, activeKey: _bisActiveKey, phase: _bisPhase, slot, rank,
+      classKo: entry?.class_ko || entry?.class || '',
+      specKo:  entry?.spec_ko  || entry?.spec  || '',
+    });
+  } else {
+    _bisCart.delete(ck);
+  }
+  _gsLastExported = false;
+  // 현재 뷰에서 같은 item_id 행은 이 context 키가 같으므로 toggle
   document.querySelectorAll(`.is-item-row[data-item-id="${itemId}"]`).forEach(row => {
     row.classList.toggle('in-cart', checked);
   });
-
   _bisUpdateCartPanel();
 }
 
-function bisRemoveCart(itemId) {
-  _bisCart.delete(itemId);
-  document.querySelectorAll(`.is-item-row[data-item-id="${itemId}"] .is-cart-chk`).forEach(cb => cb.checked = false);
-  document.querySelectorAll(`.is-item-row[data-item-id="${itemId}"]`).forEach(row => row.classList.remove('in-cart'));
+function bisRemoveCart(ck) {
+  const e = _bisCart.get(ck);
+  if (!e) return;
+  _bisCart.delete(ck);
+  _gsLastExported = false;
+  // 현재 뷰에서 같은 context면 체크 해제
+  document.querySelectorAll(`.is-item-row[data-item-id="${e.itemId}"] .is-cart-chk`).forEach(cb => cb.checked = false);
+  document.querySelectorAll(`.is-item-row[data-item-id="${e.itemId}"]`).forEach(row => row.classList.remove('in-cart'));
   _bisUpdateCartPanel();
 }
 
 function bisClearCart() {
   _bisCart.clear();
+  _gsLastExported = false;
   document.querySelectorAll('.is-cart-chk').forEach(cb => cb.checked = false);
   document.querySelectorAll('.is-item-row').forEach(row => row.classList.remove('in-cart'));
   _bisUpdateCartPanel();
@@ -627,59 +659,151 @@ function _bisUpdateCartPanel() {
   const panel = document.getElementById('is-cart-list');
   if (!panel) return;
 
+  // 그룹화: activeKey > phase > slot
+  const groups = new Map(); // activeKey → Map(phase → Map(slot → [entries]))
+  for (const [ck, e] of _bisCart) {
+    if (!groups.has(e.activeKey)) groups.set(e.activeKey, new Map());
+    const byPhase = groups.get(e.activeKey);
+    if (!byPhase.has(e.phase)) byPhase.set(e.phase, new Map());
+    const bySlot = byPhase.get(e.phase);
+    if (!bySlot.has(e.slot)) bySlot.set(e.slot, []);
+    bySlot.get(e.slot).push({ ck, ...e });
+  }
 
-  // item_id → tbca item 데이터 매핑 (source 포함)
-  const itemMeta = {};
-  if (_bisData) {
-    for (const v of Object.values(_bisData)) {
-      for (const slotData of v.slots) {
-        for (const phaseKey of Object.keys(slotData)) {
-          if (phaseKey === 'slot' || !Array.isArray(slotData[phaseKey])) continue;
-          for (const it of slotData[phaseKey]) {
-            if (_bisCart.has(it.item_id) && !itemMeta[it.item_id]) {
-              itemMeta[it.item_id] = it;
-            }
-          }
+  let html = '';
+  for (const [ak, byPhase] of groups) {
+    const firstEntry = [...byPhase.values()][0];
+    const firstSlot  = firstEntry ? [...firstEntry.values()][0] : null;
+    const sample     = firstSlot?.[0];
+    const groupLabel = sample ? `${sample.classKo} · ${sample.specKo}` : ak;
+    html += `<div class="is-cart-group-hd">${groupLabel}</div>`;
+
+    for (const [phase, bySlot] of byPhase) {
+      html += `<div class="is-cart-phase-hd">${phase.toUpperCase()}</div>`;
+      for (const [slot, entries] of bySlot) {
+        const slotKr = BIS_SLOT_KR[slot] || slot;
+        html += `<div class="is-cart-slot-hd">${slotKr}</div>`;
+        for (const e of entries) {
+          const id     = e.itemId;
+          const cached = _bisWhCache[id];
+          const name   = cached?.name || `#${id}`;
+          const icon   = cached?.icon || BIS_ICON_FB;
+          const qc     = cached ? (BIS_QUALITY_COLOR[cached.qualityId] || '#9d9d9d') : '#9d9d9d';
+          const meta   = _bisData?.[ak]?.slots.find(s => s.slot === slot)?.[phase]?.find(it => it.item_id === id);
+          const activeSrc = meta?.source && Object.keys(meta.source).length ? meta.source : cached?.source;
+          const srcTxt = _bisSrcDetail(activeSrc);
+          html += `<div class="is-cart-item">
+            <img class="is-cart-item-icon" src="${icon}" onerror="this.src='${BIS_ICON_FB}'" alt="">
+            <div class="is-cart-item-info">
+              <div class="is-cart-item-name" style="color:${qc}">${name}</div>
+              <div class="is-cart-item-src">${srcTxt}</div>
+            </div>
+            <button class="is-cart-item-rm" onclick="bisRemoveCart('${e.ck}')" title="제거">×</button>
+          </div>`;
         }
       }
     }
   }
-
-  let html = '';
-  for (const id of _bisCart) {
-    const cached = _bisWhCache[id];
-    const meta   = itemMeta[id];
-    const name   = cached?.name || meta?.name || `#${id}`;
-    const icon   = cached?.icon || BIS_ICON_FB;
-    const qc     = cached ? (BIS_QUALITY_COLOR[cached.qualityId] || '#9d9d9d') : '#9d9d9d';
-    const activeSrc = meta?.source && Object.keys(meta.source).length ? meta.source : cached?.source;
-    const srcTxt = _bisSrcDetail(activeSrc);
-
-    html += `<div class="is-cart-item">
-      <img class="is-cart-item-icon" src="${icon}" onerror="this.src='${BIS_ICON_FB}'" alt="">
-      <div class="is-cart-item-info">
-        <div class="is-cart-item-name" style="color:${qc}">${name}</div>
-        <div class="is-cart-item-src">${srcTxt}</div>
-      </div>
-      <button class="is-cart-item-rm" onclick="bisRemoveCart(${id})" title="제거">×</button>
-    </div>`;
-  }
   panel.innerHTML = html;
+
+  // Google Sheets 버튼 상태
+  const gsArea = document.getElementById('bisGsArea');
+  const gsBtn  = document.getElementById('bisGsBtn');
+  if (gsArea && gsBtn) {
+    gsArea.style.display = _bisCart.size ? '' : 'none';
+    if (_gsLastExported) {
+      gsBtn.innerHTML = '✓ 복사됨 — 새 시트에 Ctrl+V';
+      gsBtn.className = 'is-gs-btn open';
+    } else {
+      gsBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg> 구글 시트로 열기 (Ctrl V를 눌러주세요!)';
+      gsBtn.className = 'is-gs-btn';
+    }
+    gsBtn.onclick = bisExportToSheet;
+  }
 }
 
 
-// ── 일괄 Wowhead fetch ───────────────────────────────────────
+// ── Google Sheets 내보내기 (클립보드 TSV + sheets.new) ─────────
+let _gsLastExported = false;
+
+function _bisCartSrcParts(itemId, activeKey, phase, slot) {
+  if (_bisData && activeKey && phase && slot) {
+    const sd = _bisData[activeKey]?.slots.find(s => s.slot === slot);
+    const it = sd?.[phase]?.find(x => x.item_id === itemId);
+    if (it?.source?.source_type) {
+      const s = it.source;
+      return { type: s.source_type || '', ko: s.source_ko || '', location: s.source_location || '' };
+    }
+  }
+  const ws = _bisWhCache[itemId]?.source;
+  if (ws?.source_type && ws.source_type !== '알 수 없음') {
+    return { type: ws.source_type || '', ko: ws.source_ko || '', location: ws.source_location || '' };
+  }
+  return { type: '', ko: '', location: '' };
+}
+
+async function bisExportToSheet() {
+  if (!_bisCart.size) return;
+
+  // TSV 생성 (헤더 + 데이터 행)
+  const rows = [['직업', '특성', '페이즈', '슬롯', '이미지', '아이템명', '출처 유형', '세부 출처', '위치']];
+  for (const [, e] of _bisCart) {
+    const id   = e.itemId;
+    const src  = _bisCartSrcParts(id, e.activeKey, e.phase, e.slot);
+    const icon = _bisWhCache[id]?.icon || '';
+    const slotKr = BIS_SLOT_KR[e.slot] || e.slot;
+    rows.push([
+      e.classKo,
+      e.specKo,
+      e.phase.toUpperCase(),
+      slotKr,
+      icon ? `=IMAGE("${icon}")` : '',
+      _bisWhCache[id]?.name || `#${id}`,
+      src.type,
+      src.ko,
+      src.type === '전문 기술' ? '' : src.location,
+    ]);
+  }
+  const tsv = rows.map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+
+  const gsBtn = document.getElementById('bisGsBtn');
+  try {
+    await navigator.clipboard.writeText(tsv);
+    window.open('https://sheets.new', '_blank');
+    _gsLastExported = true;
+    _bisUpdateCartPanel();
+  } catch (_) {
+    // clipboard 실패 시 textarea fallback
+    const ta = document.createElement('textarea');
+    ta.value = tsv;
+    ta.style.cssText = 'position:fixed;top:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    window.open('https://sheets.new', '_blank');
+    _gsLastExported = true;
+    _bisUpdateCartPanel();
+  }
+}
+
+// ── 일괄 Wowhead fetch (동시 worker N개로 풀 가동, 느린 응답이 빠른 응답 막지 않음) ──
 async function _bisBatchFetch(ids) {
   const fc = document.getElementById('is-filter-col');
   fc?.classList.add('is-filter-loading');
-  try {
-    for (let i = 0; i < ids.length; i += 3) {
-      const batch = ids.slice(i, i + 3);
-      await Promise.all(batch.map(async id => {
+  const CONCURRENCY = 8;
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < ids.length) {
+      const id = ids[cursor++];
+      try {
         const data = await _bisWhFetch(id);
         if (data) _bisUpdateRows(id, data);
-      }));
+      } catch (_) {}
     }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker));
   } finally {
     fc?.classList.remove('is-filter-loading');
   }
@@ -699,8 +823,8 @@ function _bisUpdateRows(itemId, data) {
     const txt = _bisSrcDetail(data.source);
     if (txt) srcEl.innerHTML = txt;
   }
-  // 장바구니 패널도 갱신
-  if (_bisCart.has(itemId)) _bisUpdateCartPanel();
+  // 장바구니 패널도 갱신 (해당 아이템이 담겨있으면)
+  if ([..._bisCart.values()].some(e => e.itemId === itemId)) _bisUpdateCartPanel();
 }
 
 // ── Wowhead XML fetch ────────────────────────────────────────

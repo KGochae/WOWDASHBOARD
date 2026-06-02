@@ -1,20 +1,74 @@
-# WOW.GG — Waktaverse WOW Guild Dashboard
+# WOW.GG — Waktaverse Guild Dashboard
 
-왁타버스 WOW 길드원들의 캐릭터 정보를 한눈에 확인할 수 있는 팬사이트 대시보드입니다.
+왁타버스 WOW 클래식 TBC 길드원의 캐릭터 정보를 실시간으로 조회하고 분석하는 대시보드입니다.
 
-> **Fan Site** — This is an unofficial fan project. Not affiliated with Blizzard Entertainment.
+**Live →** [wowak-3edc9.web.app](https://wowak-3edc9.web.app)
+
+---
+
+## Overview
+
+해당 프로젝트는 월드 오브 워크래프트 버츄얼 스트리머 레이드 콘텐츠를 보며 스트리머들이 콘텐츠에 더 쉽게 몰입할 수 있는 환경을 만들자”라는 목표로 만들어진 서비스입니다.
+라이트 유저들이 아이템과 스킬 정보를 찾는 데 어려움을 겪고 있는 모습이 있었고, 또한 레이드 참가자 선발 시 성장 현황을 비교할 수 있는 기준이 필요하다고 생각했습니다.
+이를 위해 게임사 API와 Airflow를 활용해 ETL 자동화 환경을 구축하고, 직업별 아이템 및 스킬 통계와 캐릭터 정보를 확인할 수 있는 검색 서비스를 개발했습니다.
 
 ---
 
 ## Features
 
-- **캐릭터 뷰어** — 장비, 스탯, 특성 트리, 3D 모델 뷰어
-- **기어스코어** — GearScoreCalc.lua 기준 자동 계산
-- **스탯 랭킹** — 직업별 적중도/치유량/공격력 등 랭킹 테이블
-- **스킬/특성 통계** — 길드원 특성 선택 히트맵 & 분포표
-- **아이템 찾기** — 던전/레이드별 BIS 아이템 필터 검색
-- **로그인 히트맵** — 길드원 월별 접속 기록 잔디 시각화
-- **길드 통계** — 역할(딜/탱/힐) 분포, 접속 활성도 대시보드
+### 캐릭터 뷰어
+- 장비 슬롯 전체 표시 (아이콘·아이템레벨·품질 색상)
+- **3D 캐릭터 모델** — WoW Model Viewer (WebGL, zamimg CDN)
+- **기어스코어** — GearScoreCalc.lua 포팅, 슬롯 보정·품질 배율·마법부여/젬 보정 포함
+- **레이더 차트** — 장비 고유 스탯 / 착용효과 / 마법부여 3가지 소스 분리 시각화
+- **로그인 히트맵** — GitHub 잔디 형태, 오전 9시 미만 로그아웃 시 전날 추론 반영
+- 특성 트리 시각화 (Active / Secondary 그룹)
+- 인챈트 분석 패널 — 마법부여·보석 수량 요약, 합산 효과 바 차트
+- 아이템 스탯 합계 패널 (적중도/치유량/공격력 등 파생 스탯 포함)
+- **실시간 새로고침** — Cloudflare Worker → Blizzard API 직접 조회
+
+### 스탯 랭킹
+- 직업별 스탯 랭킹 테이블 (30명/페이지, 다중 정렬)
+- 길드 등급 필터 (버튜버, 시청자 등)
+- 상위 백분위·직업 평균 대비 바 표시
+- 닉네임 검색 → 해당 페이지 자동 이동
+
+### 길드 통계 대시보드
+- 역할(딜/탱/힐) 분포 도넛 차트
+- 접속 활성도 대시보드
+- MVP 카드 (스탯별 최고 캐릭터)
+- 레벨 분포도
+
+### 특성·인챈트 통계
+- 직업·특성별 스킬 트리 히트맵 (전체 길드원 집계)
+- 특성 선택 분포표
+- 보석 색상 필터링 (붉은·노란·파란·얼개)
+- 슬롯별 마법부여·보석 사용 현황
+
+### 아이템 찾기
+- Classic / TBC 3,736개 아이템 DB
+- 직업·레벨구간·던전/레이드·능력치·슬롯 복합 필터
+- 장바구니 기반 던전 루트 카드
+- Wowhead XML API 프록시 툴팁
+
+---
+
+## Architecture
+
+```
+Browser
+  └── Firebase Hosting (index.html + bundle.js)
+        ├── Firebase Storage     ← characters.json, user_login_log.json (1시간 주기 스냅샷)
+        ├── Cloudflare Worker    ← /blizzard/character/:name (실시간 Blizzard API 프록시)
+        │     ├── Blizzard OAuth2 API
+        │     ├── Firestore (character_refreshes) ← 실시간 갱신 캐시
+        │     └── Cloudflare R2  ← 3D 모델 파일, itemsEra.json 캐시
+        ├── zamimg CDN           ← WoW Model Viewer (WebGL)
+        └── Firebase Analytics   ← 탭 체류시간, 검색 이벤트 추적
+```
+
+**데이터 파이프라인**
+유저가 로그아웃된 시점에서 데이터가 업데이트 되는 특성상, Apache Airflow DAG(`wow_dag_async.py`)가 매시 55분 Blizzard API를 배치 수집해 Firebase Storage에 `characters.json` / `user_login_log.json`을 업로드합니다. 유저가 실시간 새로고침 버튼을 누르면 Cloudflare Worker가 단일 캐릭터를 직접 조회하고 Firestore에 저장, 다음 클라이언트 로드 시 스냅샷보다 최신 데이터가 자동 적용됩니다.
 
 ---
 
@@ -22,53 +76,55 @@
 
 | 구분 | 기술 |
 |------|------|
-| Frontend | Vanilla HTML / CSS / JavaScript |
-| 캐릭터 데이터 | Firebase Storage (정적 JSON) |
-| 로그인 로그 | Firebase Storage |
-| 아이템 툴팁 | Cloudflare Workers 프록시 → Wowhead XML API |
-| 3D 모델 | WoW Model Viewer (zamimg CDN) |
-| 아이콘 CDN | render.worldofwarcraft.com / nether.wowhead.com |
+| Frontend | Vanilla JS / CSS (프레임워크 없음, 번들: `build_bundle.py`) |
+| Hosting | Firebase Hosting |
+| 데이터 저장 | Firebase Storage (JSON), Firestore (실시간 갱신) |
+| 실시간 API 프록시 | Cloudflare Workers (Blizzard API, Wowhead XML) |
+| 모델 캐시 | Cloudflare R2 |
+| 3D 렌더 | WoW Model Viewer (zamimg CDN, WebGL) |
+| 데이터 파이프라인 | Apache Airflow + Python |
+
+---
+
+## Key Implementation Details
+
+**파생 스탯 계산**
+배틀넷 API가 제공하지 않는 적중도·주문 치유량·공격력·기어스코어를 아이템 `stat_str`, 착용효과, 마법부여, 보석, 세트 효과 문자열을 정규식으로 파싱해 직접 집계합니다 (`data.js: _recomputeCharDerivedStats`).
+
+**GearScore**
+GearScoreCalc.lua 공식을 JS로 포팅. 슬롯별 가중치 × `((ilvl - A) / B) × 1.8618 × 품질배율`. Legendary = Epic × 1.3, 마법부여 +5%, 젬 +5/개, 헌터 무기 보정 포함.
+
+**실시간 데이터 머지**
+`refreshCurrentCharacter()`는 Cloudflare Worker에서 신선한 데이터를 받아 기존 `GUILD_DB / STATS_DB / SPEC_DB / CHAR_DB`에 인플레이스 머지합니다. 랭킹 캐시(`_statRankCache`)를 무효화해 통계 탭도 즉시 반영합니다.
+
+**로그인 히트맵 추론**
+로그아웃 시각이 오전 9시 미만이면 전날 새벽까지 플레이한 것으로 추론해 전날 셀도 `hm-inferred`로 표시합니다.
+
+**Hash 라우팅**
+`#스탯랭킹`, `#아이템검색` 등 한글 해시로 URL 직접 진입 및 탭 상태 복원을 지원합니다.
 
 ---
 
 ## Project Structure
 
 ```
-index.html              메인 앱
-css/style.css           전체 스타일
+index.html                  메인 앱 (SPA)
+css/style.css               전체 스타일
 js/
-  ├── bundle.js         배포용 번들 (원본 소스 합본)
-  ├── constants.js      전역 상수
-  ├── core.js           핵심 유틸 (탭 전환, 로그)
-  ├── navigation.js     페이지·해시 라우팅
-  ├── data.js           데이터 로드 및 전역 DB 구성
-  ├── guild.js          사이드바, 로그인 히트맵, 캐릭터 선택
-  ├── character.js      캐릭터 뷰어 렌더
-  ├── stats.js          왁타버스 통계 (랭킹, 역할 분포, MVP)
-  ├── skillstats.js     스킬 트리 통계
-  ├── items.js          아이템 찾기
-  ├── tooltips.js       툴팁 렌더
-  ├── compare.js        캐릭터 비교
-  ├── raid.js           레이드 상세
-  └── legal.js          이용약관/개인정보 모달
-data/
-  ├── notices.json      공지사항
-  ├── spell_icons.json  스펠 아이콘 캐시
-  ├── tbc_talents.json  TBC 특성 트리 DB
-  ├── dim_appearance.json  3D 외형 데이터
-  ├── soop.json         SOOP 프로필 매핑
-  ├── items_merged.json 아이템 DB (Classic+TBC, 3,736개)
-  ├── itemsEra.json     아이템 표시ID (3D 렌더용)
-  ├── atlasloot_bis.json  BIS 아이템 목록
-  ├── tbca_bis_updated.json  TBCA BIS Phase 1
-  └── raid/             레이드 CSV 데이터
-skill_loadmap/
-  └── class_skill_tree.json  직업별 스킬 트리 데이터
-worker/index.js         Cloudflare Worker (Wowhead XML 프록시)
-background/             레이드 배경 이미지
-lib/                    WoW Model Viewer 라이브러리
-build_bundle.py         번들 빌드 스크립트
-firebase.json           Firebase Hosting 설정
+  constants.js              전역 상수 (슬롯·스탯·클래스·던전 메타)
+  core.js                   탭 전환, 로그, XHR 인터셉터
+  navigation.js             페이지·해시 라우팅
+  data.js                   데이터 로드 및 전역 DB 구성, 파생 스탯 계산
+  guild.js                  사이드바, 캐릭터 선택, 실시간 새로고침, 로그인 히트맵
+  character.js              캐릭터 뷰어 (장비·스탯·특성·레이더 차트)
+  stats.js                  스탯 랭킹, 길드 통계 대시보드
+  skillstats.js             특성·인챈트 통계
+  items.js                  아이템 찾기 및 필터
+  tooltips.js               공통 툴팁 렌더러
+  legal.js                  이용약관·개인정보 모달
+worker/index.js             Cloudflare Worker (Blizzard API, Wowhead XML 프록시)
+firebase.json               Firebase Hosting 설정
+build_bundle.py             JS 번들 빌드 스크립트
 ```
 
 ---
@@ -76,128 +132,24 @@ firebase.json           Firebase Hosting 설정
 ## Local Development
 
 ```bash
-# 로컬 서버 실행 (Python)
+# 로컬 서버 실행
 python -m http.server 8000
 
-# 브라우저에서 접속
+# 브라우저 접속
 http://localhost:8000
-```
 
-디버그 로그 활성화:
-```
+# 디버그 로그 활성화
 http://localhost:8000?debug
-```
 
-JS 수정 후 번들 재생성:
-```bash
+# JS 수정 후 번들 재생성
 python build_bundle.py
 ```
 
+Cloudflare Worker 로컬 실행 (실시간 새로고침 사용 시):
+```bash
+cd _dev/worker
+wrangler dev --remote
+# → http://127.0.0.1:8787
+```
+
 ---
-
-## Data Pipeline
-
-캐릭터 데이터는 배틀넷 API → Python 스크래퍼 → Firebase Storage 경로로 수집됩니다.
-로그인 로그는 별도 DAG(wow_dag_async.py)로 매시 55분 수집 후 Firebase Storage에 저장됩니다.
-앱 로드 시 Firebase Storage에서 `characters.json`, `user_login_log.json`을 fetch합니다.
-
----
-
-[새로운기능 - 레이드 시너지] - header tab [25인 레이드 구성] 추가
--> 레이드를 짤때, 어떤 길드원을 데려가야할지에 대한 고민으로 부터 나온 기능
-
-1. [WOW classic 불타는 성전 기념서버 기준] 으로 레이드 캐릭터-특성별 조합 시너지를 토대로 최적의 팀을 구성할 수 있는 기능
-2. 각 클래스-특성 끼리의 시너지 데이터를 우선 정리 (정확성 필요 - 매우중요)
-
-3. 레이드 구성전용 사이드바 추가  [유저 - 클래스 - 특성 - 포지션 (힐러/탱커/딜러) -기어스코어 - 핵심 스탯 1개 (힐러- 치유증가량 / 탱커- 방어숙련도 / 딜러- 주문력 or 공격력 or 전투력) ]
-4. 사이드 바에서 유저를 끌어와서 레이드 구성(한공대당 5명) - 각 팀별 시너지 요약
-
-
-
-
-[아이템 및 인챈트 통계]
-- 스킬/특성 통계영역에 아이템 및 인챈트 통계 추가
-- st-mode-btn active 을  필터로 만들어줘 [테마필터]  - [특성 통계] - [인챈트 통계] 
-- 클래스 - 특성 별 -  아이템 슬롯별로 어떤 마법부여, 보석을 썼는지 요약하는 통계 기능  (필터는 사이드 그대로 이용 , 인챈트 데이터 가져오는 로직은 pr-item-panel 확인) 
-[본격적인 시작전 ui 고민] 
-- gear-wrap 에 있는 itemslot 위치 구성만 그대로 가져오고, 시각화 하고싶은데 어떤 방법 이있을까? 기획을 세워줘
-
-
-
-st-rank-notice 오른쪽에 집계 기준을 설명해줬으면 좋겠어 (집계기준보기 << 접고 필수있도록>>)
-
-[집계 기준]
-1. API 에서 제공되지 않은 능력치
-1-1 치유 및 공격 증가량 
-아이템 기본 능력치, 착용효과, 세트효과, 보석, 마법부여  
-일부 클래스 특성 (여기에 오늘 추가한 내용 요약 EX. 성기사-신성 지능 35%...)
-
-1-2 적중도 (주문 적중도, 치명타 적중도, 극대화 적중도)  
-아이템 기본 능력치, 착용효과, 세트효과, 보석, 마법부여, 
-
-2. 나머지 능력치들
-유저가 로그아웃된 시점의 능력치 
-
-
-[좋아 이제 연출방향을 알려줄게]
-1. 화면이 점점 어두워지면서 5초동안 fade out
-2. count 크게 10 ~ 1
-3. "최다 호드킬"  soop profile img - 닉네임 - 값  을 text는 타이포그래피 연출로, 애니메이션 fade in 되게해줘. 숫자 값들은 0~n 까지 넘어가는 연출
-
-
-1. [데이터] 길드등급은 [버튜버, 고정멤버] 등급 기준으로 해주고, [CSS] 폰트는 pretendard 기준으로 해줘.   
-2. 우선 통계항목들은 전부지워주고,  [TEST 통계]  CHARACTER_NAME = "왁두" 의 "방어숙련도" 값으로 카드를 띄워줘. 
-3. 여기서 연출이 필요해. 타이틀 먼저 띄우고  - soop 프로필사진을 중앙에 크게 나온뒤 왼쪽으로 옮겨지면서 "방어숙련도" 값이 count 되게 해줘
-
-
-
-
-## 인챈트 요약 ui 패치
-1. 보석 및 마법부여 이름은 hovor 했을때 같이 뜨도록해줘. (수량은 그대로 유지)
-2. 보석 옆에 마법부여 COL 을 추가해서 2COL 로 나열해줘. 마법부여도 동일한 마법부여가 있으면 수량을 표시해줘 
-3. class="ia-bar-chart" , class="ia-2col", 소켓보너스 까지  "인챈트 요약" 영역으로  그리고 "기어스코어 변화 차트" 부터 "아이템 요약" 영역으로 구분해줘. 
-4. 즉, 기어스코어 변화는 "stats-section-title panel-section-hd" CSS 이어야합니다.
-
-1. "인챈트 요약" 을 "아이템 요약" 으로 변경
-2. [기어스코어 변화] 영역 아래에 [BIS/ALT]를 요약할거야.
-3. 획득+TierToken , 상인, 토큰 등 아이템 출처별로 어떤 아이템을 얻었는지 요약해줘.( 획득 및 tiertoken의 경우 레이드별로도 같이 요약) notion card ui 형태로. 
-
-
-
-
-## WOW RECAP 
-RECAP 탭을 만들어서, 스크롤을 내려가면서 그동안의 여정을 RECAP 형태로 요약할거야. 현재 사용중인 TABLE CSS 및  디자인 CSS 를 참고해서 UI 통일성을 줘.
-
-[내용]
-WAKTAVERSE WOW RECAP 본격적으로 데이터를 수집한 4월8일 ~ 현재 까지의 WOW 통계입니다.
-
-
-[주제]
-[왁타버스 전체 길드원]-[4월8일 998명 ~ 현재 O명] 길드원 감소 없이 꾸준히 유지하고 있어요
-
-[버튜버] - 4월8일 240명 ~ 현재 O명 -  N명 으로 감소했어요. 
-- 버튜버 최후의 생존자  (4월8일 240명 -> 5월N일 N명 -> 그 중 5월 접속률 90% 이상 버튜버는? N명) - soop img  접속기록 heatamp table로 크게 요약
-- 가장 높은 기어스코어를 달성한 왁타버스 길드원 (버튜버, 네임드, 스윗기사단, 시청자 등급별로 차례대로) + 주간 기어스코어 성장률
-- WOW 클립중 가장 많은 조회수를 달성한 순간은? - [soopclip vieao 화면 영역 크게]
-
-[CSS]
-* 모든 폰트는 지금 사용중인 pretendard
-* 시계열 날짜순으로 아래로 내려가면서 스크롤 할때마다 text가 나오도록해야해 event.js 를 참고해보면 animation이 자동으로 적용되는데, 이건 scroll animation 느낌으로 , 애니메이션 추가해서 TEXT에는 타이포그래픽  주면서 적절한 FADE IN-OUT 
-
-
-[RECAP 부분을 좀더 수정하려고해]  
-
-
-
-
-[레이드 추억들]
-3.13 OO 레이드 버츄얼 25인 레이드 최초 클리어
-LINK:
-
-4.1  OO 레이드... 
-LINK:
-
-5.13 그룰레이드
-LINK: https://vod.sooplive.com/player/195500523
-
-

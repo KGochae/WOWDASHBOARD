@@ -192,6 +192,7 @@ function _initFromHash(){
     '레이드':()=>{showViewer();switchVTab('raid');},
   };
   if(h && map[h]) { map[h](); return; }
+  // showViewer(); switchVTab('recap');
 }
 
 _preloadFromHash();

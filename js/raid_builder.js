@@ -4,6 +4,7 @@
 let _rbGroups = Array(5).fill(null).map(() => Array(5).fill(null));
 let _rbDragSrc = null; // { name, fromGroup, fromSlot } or { name, fromGroup:null }
 let _rbPoolFilter = { ranks: new Set(['버튜버','고정멤버']), role: 'all', cls: 'all' };
+let _rbPoolSearch = '';
 let _rbInitialized = false;
 
 // ── 스펙 조회 헬퍼 ───────────────────────────────────────────
@@ -18,6 +19,81 @@ function rbGetSecondarySpec(name) {
   const s = SPEC_DB[name];
   if (!s || !s.secondary || !s.secondary.length) return null;
   return s.secondary.reduce((b, a) => a.pts > b.pts ? a : b, { pts: 0, spec: '' }).spec || null;
+}
+
+function rbGetAllSpecs(name) {
+  const active = rbGetSpec(name);
+  const sec = rbGetSecondarySpec(name);
+  const fromLog = new Set();
+  const log = window.GS_LOG_RAW?.[name] || {};
+  for (const dateData of Object.values(log)) {
+    for (const spec of Object.keys(dateData)) fromLog.add(spec);
+  }
+  const result = [];
+  if (active) result.push(active);
+  if (sec && !result.includes(sec)) result.push(sec);
+  for (const s of fromLog) { if (!result.includes(s)) result.push(s); }
+  return result;
+}
+
+function rbGetGsForSpec(name, spec) {
+  const log = window.GS_LOG_RAW?.[name];
+  if (!log) return null;
+  const dates = Object.keys(log).sort().reverse();
+  for (const date of dates) {
+    if (log[date][spec]?.gs != null) return log[date][spec].gs;
+  }
+  return null;
+}
+
+function rbFilterSearch(val) {
+  _rbPoolSearch = val.trim().toLowerCase();
+  rbRenderPool();
+  const input = document.querySelector('.rb-pool-search');
+  if (input && document.activeElement !== input) input.focus();
+}
+
+function rbSpecDDToggle(btn) {
+  const list = btn.nextElementSibling;
+  const isOpen = list.style.display === 'block';
+  document.querySelectorAll('.rb-spec-dd-list').forEach(l => { l.style.display = 'none'; });
+  if (!isOpen) list.style.display = 'block';
+}
+
+function rbSpecDDSelect(opt, name) {
+  const spec = opt.dataset.spec;
+  const dd = opt.closest('.rb-spec-dd');
+  dd.querySelector('.rb-spec-dd-val').textContent = spec;
+  dd.querySelector('.rb-spec-dd-list').style.display = 'none';
+  const row = opt.closest('tr');
+  const gs = rbGetGsForSpec(name, spec);
+  const gsTd = row?.querySelector('.rb-pool-gs');
+  if (gsTd) gsTd.textContent = gs != null ? gs.toLocaleString() : '?';
+  const role = rbGetRoleFromSpec(name, spec);
+  const badge = row?.querySelector('.rb-role-badge');
+  if (badge) { badge.className = `rb-role-badge rb-role-${role}`; badge.textContent = role; }
+}
+
+function rbSlotSpecDDSelect(opt, name) {
+  const spec = opt.dataset.spec;
+  const dd = opt.closest('.rb-spec-dd');
+  dd.querySelector('.rb-spec-dd-val').textContent = spec;
+  dd.querySelector('.rb-spec-dd-list').style.display = 'none';
+  const slot = opt.closest('.rb-slot-filled');
+  const gs = rbGetGsForSpec(name, spec);
+  const gsEl = slot?.querySelector('.rb-slot-gs');
+  if (gsEl) gsEl.textContent = `GS ${gs != null ? gs.toLocaleString() : '?'}`;
+  const role = rbGetRoleFromSpec(name, spec);
+  const badge = slot?.querySelector('.rb-role-badge');
+  if (badge) { badge.className = `rb-role-badge rb-role-${role}`; badge.textContent = role; }
+}
+
+function rbGetRoleFromSpec(name, spec) {
+  const gm = GUILD_DB[name];
+  if (!gm) return '딜러';
+  const clsMap = RB_SPEC_INFO[gm.class_name];
+  if (!clsMap) return '딜러';
+  return (clsMap[spec] || clsMap['*'])?.role || '딜러';
 }
 
 function rbGetSpecInfo(name) {
@@ -185,11 +261,11 @@ const RB_PLAIN = {
 // ── 클래스 시너지 콤보 ────────────────────────────────────────
 const RB_CLASS_COMBOS = [
   {
-    title: '방어도 시너지',
+    title: '방어도 감소 시너지',
     label: '분노 전사 + 도적 + 드루이드',
     scope: '공대 전체',
     color: '#c79c6e',
-    desc: '세 직업의 방어도 감소 스킬을 조합하면 적의 방어도를 최대 5,260 깎아 공대 전체 물리 딜러의 실질 피해량을 크게 높입니다.',
+    desc: '세 직업의 방어도 감소 스킬을 조합하면 적의 방어도를 최대 5,260 깎아 공대 전체 물리 딜러의 피해량을 높입니다.',
     skills: '방어구 약화 (전사)  −2,600\n갑옷 노출 (도적)     −2,050\n요정의 불꽃 (드루이드) −610',
     check: ns => {
       const hasWarrior = ns.some(n => GUILD_DB[n]?.class_name === '전사' && rbGetRole(n) === '딜러');
@@ -213,8 +289,8 @@ const RB_CLASS_COMBOS = [
     label: '암흑 사제 + 주문 딜러',
     scope: '공대 전체',
     color: '#9d85d4',
-    desc: '적에게 걸리는 주문 취약 디버프가 공대 전체 주문 딜러의 피해를 5% 일괄 상승시킵니다.',
-    skills: '불행: 모든 주문 피해 +5%\n(마법사·흑마법사·조화 드루이드·정기 주술사 모두 적용)',
+    desc: '적에게 걸리는 주문 취약 디버프로 공대 전체 주문 딜러의 피해를 상승시킵니다.',
+    skills: '불행: 모든 주문 피해 +5%',
     check: ns => ns.some(n => GUILD_DB[n]?.class_name === '사제' && rbGetSpec(n) === '암흑') &&
                  ns.some(n => ['마법사','흑마법사'].includes(GUILD_DB[n]?.class_name) ||
                    (GUILD_DB[n]?.class_name === '드루이드' && rbGetSpec(n) === '조화') ||
@@ -225,7 +301,7 @@ const RB_CLASS_COMBOS = [
     label: '정기 주술사 + 주문 딜러',
     scope: '파티 한정',
     color: '#0070de',
-    desc: '토템 하나로 파티 주문 딜러 전체의 적중률과 크리티컬 확률을 동시에 높여 딜 안정성을 크게 개선합니다.',
+    desc: '토템으로 파티 주문 딜러 전체의 적중률과 크리티컬 확률을 동시에 높여 딜 안정성을 개선합니다.',
     skills: '격노의 토템: 주문 적중 +3% · 주문 극대화 +3%',
     check: ns => {
       const hasEle    = ns.some(n => GUILD_DB[n]?.class_name === '주술사' && rbGetSpec(n) === '정기');
@@ -255,8 +331,8 @@ const RB_CLASS_COMBOS = [
     label: '흑마법사 + 주문 딜러',
     scope: '공대 전체',
     color: '#9482c9',
-    desc: '원소 저항 감소 저주가 적에게 걸려 공대 전체 주문 딜러의 화염·냉기·비전·자연 피해를 13% 높입니다.',
-    skills: '원소의 저주: 화염·냉기·비전·자연 피해 +13%\n(공대 전체 주문 딜러 동시 적용)',
+    desc: '원소 저항 감소 저주가 적에게 걸려 공대 전체 주문 딜러의 화염·냉기·비전·자연 피해를 높입니다.',
+    skills: '원소의 저주: 화염·냉기·비전·자연 피해 +13%',
     check: ns => ns.some(n => GUILD_DB[n]?.class_name === '흑마법사') &&
                  ns.some(n => ['마법사','사제'].includes(GUILD_DB[n]?.class_name) ||
                    (GUILD_DB[n]?.class_name === '드루이드' && rbGetSpec(n) === '조화') ||
@@ -267,8 +343,8 @@ const RB_CLASS_COMBOS = [
     label: '야성 드루이드 + 딜러',
     scope: '파티 한정',
     color: '#ff7d0a',
-    desc: '변신 유지만으로 파티 딜러 전체에 치명타 +5% 오라를 상시 제공합니다. 근접·원거리 구분이 없습니다.',
-    skills: '무리의 우두머리: 근접·원거리 치명타 +5%\n(시전 없이 야수 변신 유지만으로 발동)',
+    desc: '야수 변신 유지시 파티 딜러 전체에 치명타 +5% 오라를 상시 제공합니다.',
+    skills: '무리의 우두머리: 근접·원거리 치명타 +5% \n(변신 유지 중 파티 딜러 전체 상시 적용)',
     check: ns => ns.some(n => GUILD_DB[n]?.class_name === '드루이드' && rbGetSpec(n) === '야성') &&
                  ns.some(n => rbGetRole(n) === '딜러'),
   },
@@ -277,7 +353,7 @@ const RB_CLASS_COMBOS = [
     label: '조화 드루이드 + 주문 딜러',
     scope: '파티 한정',
     color: '#ff7d0a',
-    desc: '달빛야수 변신 오라로 파티 주문 딜러 전체의 크리티컬 확률을 쿨다운 없이 상시 높입니다.',
+    desc: '달빛야수 변신 오라로 파티 주문 딜러 전체의 크리티컬 확률을 높입니다.',
     skills: '달빛야수 변신: 주문 극대화 +5%\n(변신 유지 중 파티 주문 딜러 전체 상시 적용)',
     check: ns => {
       const hasBal    = ns.some(n => GUILD_DB[n]?.class_name === '드루이드' && rbGetSpec(n) === '조화');
@@ -293,7 +369,7 @@ const RB_CLASS_COMBOS = [
     scope: '파티 한정',
     color: '#ff7d0a',
     desc: '생명의 나무 변신이 파티 힐러 전체의 치유량에 드루이드 정신력의 25%를 고정 추가합니다.',
-    skills: '생명의 나무: 힐러 치유량 +정신력 25%\n(드루이드 정신력이 높을수록 보너스 증가)',
+    skills: '생명의 나무: 힐러 치유량 +정신력 25%\n(드루이드 정신력이 높을수록 증가)',
     check: ns => ns.some(n => GUILD_DB[n]?.class_name === '드루이드' && rbGetSpec(n) === '회복') &&
                  ns.some(n => rbGetRole(n) === '힐러' && GUILD_DB[n]?.class_name !== '드루이드'),
   },
@@ -402,13 +478,25 @@ function rbMemberCardHTML(name, inPool) {
     const slotAvatarHtml = avatarSrc2
       ? `<img class="st-rank-avatar rb-slot-avatar" src="${avatarSrc2}" alt="${name}" style="border-color:${color}" onerror="this.style.display='none'">`
       : `<div class="st-rank-avatar-empty rb-slot-avatar" style="border-color:${color}">${emoji2}</div>`;
+    const allSpecs2 = rbGetAllSpecs(name);
+    const initGs2 = spec ? rbGetGsForSpec(name, spec) : null;
+    const gsVal2 = initGs2 != null ? initGs2.toLocaleString() : (Math.round(STATS_DB_V2[name]?.gear_score || 0) || '?');
+    const specDD2 = allSpecs2.length
+      ? `<div class="rb-spec-dd" onclick="event.stopPropagation()" ondragstart="event.stopPropagation()">
+          <div class="rb-spec-dd-btn" onclick="rbSpecDDToggle(this)">
+            <span class="rb-spec-dd-val">${spec || '-'}</span><span class="rb-spec-dd-arrow">▾</span>
+          </div>
+          <div class="rb-spec-dd-list">${allSpecs2.map(s=>`<div class="rb-spec-dd-opt" onclick="rbSlotSpecDDSelect(this,'${safeN}')" data-spec="${s}">${s}</div>`).join('')}</div>
+        </div>`
+      : `<span style="font-size:11px;color:var(--text3);flex-shrink:0">${spec || '-'}</span>`;
     return `${slotAvatarHtml}
       <div class="rb-mc-info" style="flex:1;min-width:0;overflow:hidden">
         <div class="st-rank-name">${name}</div>
-        <div class="st-rank-meta" style="color:${color}">${cls}${spec ? ' · ' + spec : ''}</div>
+        <div class="st-rank-meta" style="color:${color}">${cls}</div>
       </div>
+      ${specDD2}
       <span class="rb-role-badge ${roleCls}">${role}</span>
-      <span style="font-size:11px;color:var(--text3);flex-shrink:0">GS ${gs}</span>`;
+      <span class="rb-slot-gs" style="font-size:11px;color:var(--text3);flex-shrink:0">GS ${gsVal2}</span>`;
   }
 }
 
@@ -605,10 +693,11 @@ function rbPoolRowHTML(name, idx) {
   const clsId = gm.class_id || 0;
   const color = CLASS_COLOR[clsId] || '#888';
   const cls = gm.class_name || '';
-  const spec = rbGetSpec(name) || '';
-  const secSpec = rbGetSecondarySpec(name) || '';
+  const activeSpec = rbGetSpec(name) || '';
+  const allSpecs = rbGetAllSpecs(name);
   const role = rbGetRole(name);
-  const gs = Math.round(STATS_DB_V2[name]?.gear_score || 0);
+  const initGs = activeSpec ? rbGetGsForSpec(name, activeSpec) : null;
+  const gsDisplay = initGs != null ? initGs.toLocaleString() : (Math.round(STATS_DB_V2[name]?.gear_score || 0) || '?');
   const assigned = rbIsAssigned(name);
   const safeN = name.replace(/'/g, "\\'");
   const roleCls = `rb-role-${role}`;
@@ -621,21 +710,29 @@ function rbPoolRowHTML(name, idx) {
     ? `<img class="st-rank-avatar" src="${avatarSrc}" alt="${name}" style="border-color:${color}" onerror="this.style.display='none'">`
     : `<div class="st-rank-avatar-empty" style="border-color:${color}">${emoji}</div>`;
 
+  const specOptions = allSpecs.length
+    ? allSpecs.map(s => `<option value="${s}"${s === activeSpec ? ' selected' : ''}>${s}</option>`).join('')
+    : `<option value="">-</option>`;
+
   return `<tr class="rb-pool-row${assigned ? ' rb-pool-row-assigned' : ''}"
     draggable="${!assigned}"
     ondragstart="rbDragStart(event,'${safeN}',null,null)"
     ondragend="rbDragEnd(event)">
-    <td class="num ${numCls}">${idx}</td>
     <td class="img-col">${avatarHtml}</td>
     <td class="nick-col">
       <div class="st-rank-name">${name}</div>
       <div class="st-rank-meta" style="color:${color}">${cls}</div>
     </td>
-    <td class="rb-spec-col" style="font-size:12px;color:var(--text2)">${spec}</td>
-    <td class="rb-spec-col" style="font-size:12px;color:var(--text3)">${secSpec}</td>
-    <td style="text-align:center"><span class="rb-role-badge ${roleCls}">${role}</span></td>
-    <td style="text-align:center;font-size:13px;color:var(--text2)">${gs.toLocaleString()}</td>
-    <td style="text-align:center"><span class="rb-mc-bis" onmouseenter="stShowItemPopup('${safeN}',event)" onmousemove="stMoveItemPopup(event)" onmouseleave="stHideItemPopup()">BIS</span></td>
+    <td class="rb-spec-col" style="white-space:nowrap">
+      <div class="rb-spec-dd" onclick="event.stopPropagation()" ondragstart="event.stopPropagation()">
+        <div class="rb-spec-dd-btn" onclick="rbSpecDDToggle(this)">
+          <span class="rb-spec-dd-val">${activeSpec || '-'}</span><span class="rb-spec-dd-arrow">▾</span>
+        </div>
+        <div class="rb-spec-dd-list">${allSpecs.map(s=>`<div class="rb-spec-dd-opt" onclick="rbSpecDDSelect(this,'${safeN}')" data-spec="${s}">${s}</div>`).join('')}</div>
+      </div>
+    </td>
+    <td style="text-align:center;white-space:nowrap"><span class="rb-role-badge ${roleCls}">${role}</span></td>
+    <td class="rb-pool-gs" style="text-align:center;font-size:12px;color:var(--text2);white-space:nowrap">${gsDisplay}</td>
   </tr>`;
 }
 
@@ -651,6 +748,7 @@ function rbRenderPool() {
     }
     if (role !== 'all' && rbGetRole(n) !== role) return false;
     if (cls !== 'all' && gm.class_name !== cls) return false;
+    if (_rbPoolSearch && !n.toLowerCase().includes(_rbPoolSearch)) return false;
     return true;
   });
 
@@ -669,14 +767,11 @@ function rbRenderPool() {
   el.innerHTML = `<div class="st-rank-table-wrap">
     <table class="st-rank-table title_rnk_tbl rb-pool-table">
       <thead><tr>
-        <th class="num">#</th>
         <th class="img-col"></th>
         <th class="nick-col">닉네임</th>
-        <th class="rb-spec-col" style="white-space:nowrap">활성특성</th>
-        <th class="rb-spec-col" style="white-space:nowrap">부특성</th>
+        <th class="rb-spec-col" style="white-space:nowrap">특성</th>
         <th style="text-align:center;white-space:nowrap">역할</th>
         <th style="text-align:center;white-space:nowrap">GS</th>
-        <th style="text-align:center">BIS</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -761,6 +856,9 @@ function rbBuildClassFilters() {
 
 function initRaidBuilder() {
   if (!_rbInitialized) {
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.rb-spec-dd-list').forEach(l => { l.style.display = 'none'; });
+    });
     rbBuildRankFilters();
     rbBuildClassFilters();
     // 풀 영역: 드래그해서 빼기 (풀로 돌아가기)

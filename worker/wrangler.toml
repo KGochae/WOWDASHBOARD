@@ -1,7 +1,0 @@
-name = "wow-proxy"
-main = "index.js"
-compatibility_date = "2024-01-01"
-
-[[r2_buckets]]
-binding = "MODEL_CACHE"
-bucket_name = "wow-model-cache"

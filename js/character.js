@@ -234,8 +234,9 @@ function buildGsLineChart(name){
   const gid='gsg'+name.replace(/[^a-zA-Z0-9]/g,'');
   const delta=last.gs-pts[0].gs;
   const deltaStr=delta>0?`+${delta}`:String(delta);
+  const _today=new Date();
   const labels=pts.map((p,i)=>{
-    const d=new Date(p.wk+'T00:00:00');
+    const d=i===pts.length-1?_today:new Date(p.wk+'T00:00:00');
     return {x:(tx(i)/W*100).toFixed(1),text:`${d.getMonth()+1}/${d.getDate()}`};
   });
   el.innerHTML=`<div style="position:relative;">
@@ -579,7 +580,7 @@ function makeSlot(slotNum,item,tbcaKey){
         el.appendChild(badge);
       }
     }
-    if(item.icon){const img=new Image();img.src=item.icon;img.alt=item.name;img.onerror=()=>img.remove();el.appendChild(img);}
+    if(item.icon){const img=new Image();img.src=item.icon;img.alt=item.name;if(item.id)img.dataset.iid=String(item.id);img.onerror=()=>_cvFetchIcon(img);el.appendChild(img);}
     if(item.dur){
       const pct=Math.round(item.dur[0]/item.dur[1]*100);
       const col=pct>50?'#00cc66':pct>25?'#ccaa00':'#ff4444';
@@ -1429,8 +1430,9 @@ async function buildItemAnalysis(char){
         const _iconEl=(item,bi)=>{
           const col=bi.rank===1?'#ffd700':'#b0bcd8';
           const src=item.icon||`${WH_ICON}/inv_misc_questionmark.jpg`;
+          const iid=item.id?` data-iid="${item.id}"`:'';
           return `<div style="position:relative;flex-shrink:0;" title="${item.name} (#${bi.rank})">
-            <img src="${src}" style="width:28px;height:28px;border-radius:4px;border:1.5px solid ${col}44;display:block;" onerror="this.src='${WH_ICON}/inv_misc_questionmark.jpg'"/>
+            <img src="${src}"${iid} style="width:28px;height:28px;border-radius:4px;border:1.5px solid ${col}44;display:block;" onerror="_cvFetchIcon(this)"/>
             <span style="position:absolute;bottom:-1px;right:-1px;font-size:7px;font-weight:800;color:${col};background:rgba(0,0,0,.75);border-radius:2px;padding:0 2px;line-height:1.5;">${bi.rank}</span>
           </div>`;
         };
@@ -1592,8 +1594,9 @@ function _buildGsItemChartHTML(name,spec,col){
     const y=(pT+(1-v)*cH).toFixed(1);
     return `<line x1="${pL}" y1="${y}" x2="${VW-pR}" y2="${y}" stroke="rgba(255,255,255,.05)" stroke-width="1"/>`;
   }).join('');
+  const _todayIA=new Date();
   const dots=_pts.map((p,i)=>{
-    const d=new Date(p.wk+'T00:00:00');
+    const d=i===n-1?_todayIA:new Date(p.wk+'T00:00:00');
     const lbl=`${d.getMonth()+1}/${d.getDate()}`;
     const tipGs=p.gs.toLocaleString();
     const xl=(pts2[i][0]/VW*100).toFixed(2);
@@ -1665,5 +1668,40 @@ function _gsItemTT(e,lbl,gs){
   });
 }
 window._gsItemTT=_gsItemTT;
+
+// ── 아이콘 오류 폴백 (zamimg CDN → worker item ID 조회) ──────
+function _cvFetchIcon(img) {
+  const src = img.src || '';
+  const nameMatch = src.match(/\/([^\/]+)\.jpg(?:\?.*)?$/i);
+  if (nameMatch) {
+    const iconName = nameMatch[1];
+    const zamSrc = `${WH_ICON}/${iconName}.jpg`;
+    if (src !== zamSrc) {
+      img.onerror = () => _cvFetchIconById(img);
+      img.src = zamSrc;
+      return;
+    }
+  }
+  _cvFetchIconById(img);
+}
+
+async function _cvFetchIconById(img) {
+  const id = img.dataset.iid;
+  if (!id || !window.PROXY_HOST) { img.style.display = 'none'; return; }
+  img.onerror = null;
+  try {
+    const r = await fetch(`${window.PROXY_HOST}/wowhead-xml/tbc/${id}`, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) { img.style.display = 'none'; return; }
+    const text = await r.text();
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    const iconName = doc.querySelector('item > icon')?.textContent;
+    if (iconName) {
+      img.onerror = () => { img.style.display = 'none'; };
+      img.src = `${WH_ICON}/${iconName}.jpg`;
+    } else {
+      img.style.display = 'none';
+    }
+  } catch(e) { img.style.display = 'none'; }
+}
 
 // ── 툴팁 ────────────────────────────────────────────────────

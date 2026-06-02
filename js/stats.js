@@ -1037,7 +1037,7 @@ function stRenderClassTable(cls){
         :'';
       const safeN=r.name.replace(/'/g,"\\'");
       if(!r.d){
-        return `<tr style="animation:stRowSlideIn 0.8s ease both;animation-delay:${i*0.04}s;opacity:.5;cursor:pointer" onclick="quickSelect('${safeN}')">
+        return `<tr style="animation:stRowSlideIn 0.8s ease both;animation-delay:${i*0.04}s;opacity:.5;cursor:pointer" onclick="quickSelect('${safeN}','statrnk')">
           <td class="num">${globalIdx+1}</td>
           <td class="img-col">${imgHtml}</td>
           <td class="nick-col"><div class="st-rank-name">${r.name}</div></td>
@@ -1053,7 +1053,7 @@ function stRenderClassTable(cls){
       if(gm.class_name) metaParts.push(`<span style="color:${clsCol};font-weight:700">${gm.class_name}</span>`);
       if(activeSpec) metaParts.push(`<span style="color:var(--text2)">${activeSpec}</span>`);
       const metaHtml=metaParts.length?`<div class="st-rank-meta">${metaParts.join('<span style="color:rgba(255,255,255,.2)">·</span>')}</div>`:'';
-      return `<tr style="animation:stRowSlideIn 0.8s ease both;animation-delay:${i*0.04}s;cursor:pointer" onclick="quickSelect('${safeN}')">
+      return `<tr style="animation:stRowSlideIn 0.8s ease both;animation-delay:${i*0.04}s;cursor:pointer" onclick="quickSelect('${safeN}','statrnk')">
 
       <td class="num ${globalRankCls(globalIdx)}">${globalIdx+1}</td>
       <td class="img-col">${imgHtml}</td>
@@ -1122,7 +1122,9 @@ function _stBuildItemPopupHtml(name){
         bisHtml=`<div class="slot-bis-rank" style="color:${rc};border-color:${rc}55;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),${rc}33">#${bi.rank}</div>`;
       }
     }
-    const imgHtml=item.icon?`<img src="${item.icon}" alt="${(item.name||'').replace(/"/g,'&quot;')}" onerror="this.style.display='none'">`:'';
+    const _iid=item.id?` data-iid="${item.id}"`:'';
+    const _onerr=item.id?'_cvFetchIcon(this)':"this.style.display='none'";
+    const imgHtml=item.icon?`<img src="${item.icon}" alt="${(item.name||'').replace(/"/g,'&quot;')}"${_iid} onerror="${_onerr}">`:''
     return `<div class="st-item-slot" ${bisAttr} data-q="${item.q||''}">${bisHtml}${imgHtml}</div>`;
   }).join('');
   const bisBar=(bisCnt||altCnt)?`<div class="st-item-bis-bar">
